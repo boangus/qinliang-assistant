@@ -166,6 +166,74 @@
     max-height: 80vh;
     overflow-y: auto;
   }
+
+  /* ========== 浮动操作按钮 (FAB) ========== */
+  .fab {
+    position: fixed;
+    bottom: 72px;
+    right: calc(50% - 210px);
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #2b6cb0, #4299e1);
+    color: #fff;
+    font-size: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 14px rgba(66,153,225,0.5);
+    cursor: pointer;
+    z-index: 50;
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: none;
+    outline: none;
+  }
+  .fab:active {
+    transform: scale(0.92);
+    box-shadow: 0 2px 8px rgba(66,153,225,0.3);
+  }
+  @media (max-width: 480px) {
+    .fab { right: 20px; }
+  }
+
+  /* ========== 统计图表容器 ========== */
+  .chart-container { width: 100%; height: 260px; }
+  .chart-container-lg { width: 100%; height: 300px; }
+
+  /* ========== 表单样式 ========== */
+  .form-section { margin-bottom: 16px; }
+  .form-label { display: block; font-size: 13px; font-weight: 600; color: #4a5568; margin-bottom: 8px; }
+  .form-input {
+    width: 100%; border: 1.5px solid #e2e8f0; border-radius: 10px;
+    padding: 10px 12px; font-size: 14px; color: #2d3748;
+    transition: border-color 0.2s; outline: none; background: #fff;
+  }
+  .form-input:focus { border-color: #4299e1; box-shadow: 0 0 0 3px rgba(66,153,225,0.12); }
+  .checkbox-group { display: flex; flex-wrap: wrap; gap: 8px; }
+  .checkbox-item {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 12px; border-radius: 8px; font-size: 13px;
+    border: 1.5px solid #e2e8f0; cursor: pointer; transition: all 0.2s;
+    user-select: none; background: #fff;
+  }
+  .checkbox-item.checked { border-color: #4299e1; background: #ebf8ff; color: #2b6cb0; }
+  .checkbox-item input[type="checkbox"] { display: none; }
+  .radio-group { display: flex; gap: 8px; }
+  .radio-item {
+    flex: 1; text-align: center; padding: 10px 4px; border-radius: 10px;
+    border: 2px solid #e2e8f0; cursor: pointer; font-size: 13px; font-weight: 600;
+    transition: all 0.2s; user-select: none;
+  }
+  .radio-item.selected { box-shadow: 0 0 0 3px rgba(0,0,0,0.05); }
+  .range-slider {
+    width: 100%; -webkit-appearance: none; height: 6px;
+    border-radius: 3px; background: #e2e8f0; outline: none;
+  }
+  .range-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 22px; height: 22px;
+    border-radius: 50%; background: #4299e1; cursor: pointer;
+    box-shadow: 0 2px 6px rgba(66,153,225,0.3);
+  }
 </style>
 </head>
 <body>
@@ -263,7 +331,7 @@ const SEVERITY_MAP = {
 
 const TRIGGERS = ['咖啡因', '酒精', '辛辣食物', '高温环境', '压力', '剧烈运动', '情绪波动'];
 const ACCOMPANYING = ['面部潮红', '心悸', '出汗', '失眠', '焦虑', '头痛'];
-const INTERVENTIONS = ['无', '腹式呼吸', '耳穴按压', '穴位按摩', '药物'];
+const INTERVENTIONS = ['无', '腹式呼吸', '耳穴按压', '穴位按摩', '药物', '其他'];
 
 // ==================== Demo 数据生成器 ====================
 function generateDemoData() {
@@ -802,20 +870,19 @@ pageComponents['page-diary'] = {
           <p class="text-blue-100 text-xs mt-1">共 {{ store.symptoms.length }} 条记录</p>
         </div>
       </div>
-      <div class="px-4 -mt-4 relative z-10">
-        <button class="btn-press w-full card flex items-center justify-center gap-2 py-3 border-2 border-dashed border-blue-200 mb-3"
-                @click="$root.showQuickRecord = true">
-          <span class="text-blue-500">➕</span>
-          <span class="text-blue-600 font-medium text-sm">新增记录</span>
-        </button>
+      <div class="px-4 -mt-4 relative z-10 pb-20">
         <!-- 按日期分组 -->
         <div v-for="group in groupedRecords" :key="group.date" class="mb-3">
-          <div class="text-xs text-gray-400 font-medium px-1 mb-2">{{ group.label }}</div>
+          <div class="text-xs text-gray-400 font-medium px-1 mb-2 flex items-center justify-between">
+            <span>{{ group.label }}</span>
+            <span class="text-gray-300">{{ group.records.length }} 条</span>
+          </div>
           <div v-for="r in group.records" :key="r.id" class="card mb-2 py-3 cursor-pointer" @click="$root.navigate('diary-detail', { id: r.id })">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2">
-                <span class="inline-block w-2 h-2 rounded-full" :style="{ background: severityColor(r.severity) }"></span>
-                <span class="text-sm text-gray-600">{{ formatTime(r.time) }}</span>
+                <span class="inline-block w-2.5 h-2.5 rounded-full" :style="{ background: severityColor(r.severity) }"></span>
+                <span class="text-sm text-gray-700 font-medium">{{ formatTime(r.time) }}</span>
+                <span class="text-xs text-gray-400">{{ r.duration }}分钟</span>
               </div>
               <span class="text-xs px-2 py-0.5 rounded-full font-medium"
                     :style="{ background: severityBg(r.severity), color: severityColor(r.severity) }">
@@ -828,12 +895,15 @@ pageComponents['page-diary'] = {
             </div>
           </div>
         </div>
-        <div v-if="!store.symptoms.length" class="card text-center py-12">
-          <div class="text-4xl mb-3">📝</div>
-          <p class="text-gray-400 text-sm">暂无记录</p>
+        <!-- 空状态 -->
+        <div v-if="!store.symptoms.length" class="card text-center py-16">
+          <div class="text-5xl mb-4">📝</div>
+          <p class="text-gray-500 text-sm font-medium">暂无症状记录</p>
+          <p class="text-gray-400 text-xs mt-2">点击右下角 + 按钮添加第一条记录</p>
         </div>
-        <div style="height: 16px;"></div>
       </div>
+      <!-- FAB 浮动按钮 -->
+      <button class="fab btn-press" @click="$root.navigate('diary-detail', {})" title="新建记录">+</button>
     </div>
   `,
   setup() {
@@ -848,18 +918,22 @@ pageComponents['page-diary'] = {
 
     const groupedRecords = computed(() => {
       const groups = {};
-      [...store.symptoms].reverse().forEach(r => {
+      // 按时间倒序排列
+      [...store.symptoms].sort((a, b) => new Date(b.time) - new Date(a.time)).forEach(r => {
         const date = r.time.slice(0, 10);
         if (!groups[date]) groups[date] = { date, records: [] };
         groups[date].records.push(r);
       });
-      return Object.values(groups).slice(0, 15).map(g => {
-        const d = new Date(g.date);
-        const today = new Date().toISOString().slice(0, 10);
-        const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-        let label = `${d.getMonth()+1}月${d.getDate()}日`;
-        if (g.date === today) label = '今天';
-        else if (g.date === yesterday) label = '昨天';
+      return Object.values(groups).map(g => {
+        const d = new Date(g.date + 'T00:00:00');
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const gDate = new Date(g.date + 'T00:00:00');
+        let label = `${d.getMonth()+1}月${d.getDate()}日 周${'日一二三四五六'[d.getDay()]}`;
+        if (gDate.getTime() === today.getTime()) label = '今天';
+        else if (gDate.getTime() === yesterday.getTime()) label = '昨天';
         return { ...g, label };
       });
     });
@@ -993,7 +1067,521 @@ pageComponents['page-profile'] = {
   },
 };
 
-// ==================== 创建 Vue 应用 ====================
+// ==================== 日记详情/编辑表单页 ====================
+pageComponents['page-diary-detail'] = {
+  template: `
+    <div>
+      <div class="header-gradient" style="padding-bottom: 28px;">
+        <div class="back-btn" @click="$root.goBack()">←</div>
+        <div class="text-center pl-10">
+          <h1 class="text-xl font-bold">{{ isEdit ? '编辑记录' : '新建记录' }}</h1>
+        </div>
+      </div>
+      <div class="px-4 -mt-4 relative z-10 pb-24">
+        <div class="card">
+          <!-- 时间 -->
+          <div class="form-section">
+            <label class="form-label">📅 发生时间</label>
+            <input type="datetime-local" v-model="form.time" class="form-input" />
+          </div>
+
+          <!-- 严重程度 -->
+          <div class="form-section">
+            <label class="form-label">🌡️ 严重程度</label>
+            <div class="radio-group">
+              <div v-for="s in severityOpts" :key="s.value"
+                   class="radio-item"
+                   :class="{ selected: form.severity === s.value }"
+                   :style="form.severity === s.value
+                     ? { borderColor: s.color, background: s.bg, color: s.color }
+                     : {}"
+                   @click="form.severity = s.value">
+                {{ s.emoji }}<br/>{{ s.label }}
+              </div>
+            </div>
+          </div>
+
+          <!-- 持续时长 -->
+          <div class="form-section">
+            <label class="form-label">⏱️ 持续时长: <span class="text-blue-600">{{ form.duration }} 分钟</span></label>
+            <input type="range" min="1" max="60" v-model.number="form.duration" class="range-slider" />
+            <div class="flex justify-between text-xs text-gray-400 mt-1">
+              <span>1分钟</span><span>30分钟</span><span>60分钟</span>
+            </div>
+          </div>
+
+          <!-- 诱因 -->
+          <div class="form-section">
+            <label class="form-label">⚠️ 诱发因素</label>
+            <div class="checkbox-group">
+              <label v-for="t in triggers" :key="t" class="checkbox-item" :class="{ checked: form.triggers.includes(t) }">
+                <input type="checkbox" :value="t" @change="toggleArray(form.triggers, t)" />
+                <span>{{ t }}</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- 伴随症状 -->
+          <div class="form-section">
+            <label class="form-label">🩺 伴随症状</label>
+            <div class="checkbox-group">
+              <label v-for="a in accompanying" :key="a" class="checkbox-item" :class="{ checked: form.accompanying.includes(a) }">
+                <input type="checkbox" :value="a" @change="toggleArray(form.accompanying, a)" />
+                <span>{{ a }}</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- 干预措施 -->
+          <div class="form-section">
+            <label class="form-label">💊 干预措施</label>
+            <select v-model="form.intervention" class="form-input" style="appearance: auto;">
+              <option v-for="i in interventions" :key="i" :value="i">{{ i }}</option>
+            </select>
+          </div>
+
+          <!-- 备注 -->
+          <div class="form-section">
+            <label class="form-label">📝 备注</label>
+            <textarea v-model="form.note" class="form-input" rows="3" placeholder="可选，记录其他细节..."></textarea>
+          </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="mt-4 space-y-3">
+          <button class="btn-press w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-400 text-white font-semibold text-base shadow-lg shadow-blue-200"
+                  @click="save">
+            {{ isEdit ? '保存修改' : '添加记录' }}
+          </button>
+          <button v-if="isEdit" class="btn-press w-full py-3 rounded-xl bg-white text-red-500 font-semibold text-sm border border-red-200"
+                  @click="remove">
+            🗑️ 删除此记录
+          </button>
+        </div>
+      </div>
+    </div>
+  `,
+  setup(props, { root }) {
+    const store = Vue.inject('store');
+    const pageParams = Vue.inject('store') ? null : null;
+
+    const isEdit = computed(() => {
+      return root.pageParams && root.pageParams.id;
+    });
+
+    const triggers = TRIGGERS;
+    const accompanying = ACCOMPANYING;
+    const interventions = INTERVENTIONS;
+    const severityOpts = [
+      { value: 'mild', label: '轻度', emoji: '🟢', color: '#68d391', bg: '#f0fff4' },
+      { value: 'moderate', label: '中度', emoji: '🟡', color: '#f6ad55', bg: '#fffaf0' },
+      { value: 'severe', label: '重度', emoji: '🔴', color: '#fc8181', bg: '#fff5f5' },
+      { value: 'extreme', label: '极重', emoji: '⚫', color: '#e53e3e', bg: '#fed7d7' },
+    ];
+
+    // 初始化表单数据
+    const now = new Date();
+    const defaultForm = {
+      time: now.toISOString().slice(0, 16),
+      severity: 'moderate',
+      duration: 5,
+      triggers: [],
+      accompanying: [],
+      intervention: '无',
+      note: '',
+    };
+
+    let editRecord = null;
+    if (isEdit.value) {
+      editRecord = store.symptoms.find(s => s.id === root.pageParams.id);
+      if (editRecord) {
+        const d = new Date(editRecord.time);
+        // 转换为本地 datetime-local 格式
+        const localTime = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        Object.assign(defaultForm, {
+          time: localTime,
+          severity: editRecord.severity,
+          duration: editRecord.duration,
+          triggers: [...editRecord.triggers],
+          accompanying: [...editRecord.accompanying],
+          intervention: editRecord.intervention,
+          note: editRecord.note || '',
+        });
+      }
+    }
+
+    const form = reactive(defaultForm);
+
+    const toggleArray = (arr, val) => {
+      const idx = arr.indexOf(val);
+      if (idx >= 0) arr.splice(idx, 1);
+      else arr.push(val);
+    };
+
+    const save = () => {
+      const timeISO = new Date(form.time).toISOString();
+      if (isEdit.value && editRecord) {
+        // 更新已有记录
+        Object.assign(editRecord, {
+          time: timeISO,
+          severity: form.severity,
+          duration: form.duration,
+          triggers: [...form.triggers],
+          accompanying: [...form.accompanying],
+          intervention: form.intervention,
+          note: form.note,
+        });
+      } else {
+        // 新建记录
+        store.symptoms.push({
+          id: `dr-${Date.now()}`,
+          time: timeISO,
+          severity: form.severity,
+          duration: form.duration,
+          triggers: [...form.triggers],
+          accompanying: [...form.accompanying],
+          intervention: form.intervention,
+          note: form.note,
+        });
+      }
+      root.goBack();
+    };
+
+    const remove = () => {
+      if (confirm('确定要删除这条记录吗？')) {
+        const idx = store.symptoms.findIndex(s => s.id === root.pageParams.id);
+        if (idx >= 0) store.symptoms.splice(idx, 1);
+        root.goBack();
+      }
+    };
+
+    return { isEdit, form, triggers, accompanying, interventions, severityOpts, toggleArray, save, remove };
+  },
+};
+
+// ==================== 数据统计页（趋势+饼图+诱因+热力图+干预）====================
+pageComponents['page-stats'] = {
+  template: `
+    <div>
+      <div class="header-gradient" style="padding-bottom: 28px;">
+        <div class="back-btn" @click="$root.goBack()">←</div>
+        <div class="text-center pl-10">
+          <h1 class="text-xl font-bold">数据统计</h1>
+        </div>
+      </div>
+      <div class="px-4 -mt-4 relative z-10 pb-24 space-y-4">
+
+        <!-- 时间范围选择器 -->
+        <div class="card py-3">
+          <div class="flex gap-2">
+            <button v-for="tab in timeTabs" :key="tab.key"
+                    class="btn-press flex-1 py-2 rounded-lg text-sm font-semibold transition-all"
+                    :class="activeTimeTab === tab.key ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 text-gray-500'"
+                    @click="setTimeTab(tab.key)">
+              {{ tab.label }}
+            </button>
+          </div>
+        </div>
+
+        <!-- 发作频率趋势图 -->
+        <div class="card">
+          <h2 class="font-bold text-gray-800 text-sm mb-2">📈 发作频率趋势</h2>
+          <div ref="trendChartRef" class="chart-container"></div>
+        </div>
+
+        <!-- 严重度分布饼图 -->
+        <div class="card">
+          <h2 class="font-bold text-gray-800 text-sm mb-2">🍩 严重度分布</h2>
+          <div ref="pieChartRef" class="chart-container"></div>
+        </div>
+
+        <!-- 诱因频率柱状图 -->
+        <div class="card">
+          <h2 class="font-bold text-gray-800 text-sm mb-2">⚠️ 诱因频率排名</h2>
+          <div ref="triggerChartRef" class="chart-container"></div>
+        </div>
+
+        <!-- 24h×7day 热力图 -->
+        <div class="card">
+          <h2 class="font-bold text-gray-800 text-sm mb-2">🗓️ 发作热力图 (24h × 周)</h2>
+          <div ref="heatmapRef" class="chart-container-lg"></div>
+        </div>
+
+        <!-- 干预效果对比 -->
+        <div class="card">
+          <h2 class="font-bold text-gray-800 text-sm mb-2">💊 干预效果对比</h2>
+          <div ref="interventionChartRef" class="chart-container"></div>
+        </div>
+
+      </div>
+    </div>
+  `,
+  setup() {
+    const store = Vue.inject('store');
+
+    const activeTimeTab = ref('week');
+    const timeTabs = [
+      { key: 'day', label: '日' },
+      { key: 'week', label: '周' },
+      { key: 'month', label: '月' },
+    ];
+
+    const trendChartRef = ref(null);
+    const pieChartRef = ref(null);
+    const triggerChartRef = ref(null);
+    const heatmapRef = ref(null);
+    const interventionChartRef = ref(null);
+    let charts = [];
+
+    const scoreMap = { mild: 1, moderate: 2, severe: 3, extreme: 4 };
+
+    // ---- 按时间范围过滤 ----
+    const filteredSymptoms = computed(() => {
+      const now = new Date();
+      const range = activeTimeTab.value;
+      let startDate;
+      if (range === 'day') {
+        startDate = new Date(now); startDate.setHours(0,0,0,0);
+      } else if (range === 'week') {
+        startDate = new Date(now); startDate.setDate(startDate.getDate() - 6); startDate.setHours(0,0,0,0);
+      } else {
+        startDate = new Date(now); startDate.setDate(startDate.getDate() - 29); startDate.setHours(0,0,0,0);
+      }
+      return store.symptoms.filter(s => new Date(s.time) >= startDate);
+    });
+
+    // ---- 趋势数据 ----
+    const trendData = computed(() => {
+      const range = activeTimeTab.value;
+      const now = new Date();
+      const data = [];
+      if (range === 'day') {
+        // 按小时统计
+        for (let h = 0; h < 24; h++) {
+          const count = filteredSymptoms.value.filter(s => {
+            const d = new Date(s.time);
+            return d.getHours() === h && d.toDateString() === now.toDateString();
+          }).length;
+          data.push({ label: `${String(h).padStart(2,'0')}:00`, count });
+        }
+      } else {
+        // 按天统计
+        const days = range === 'week' ? 7 : 30;
+        for (let i = days - 1; i >= 0; i--) {
+          const d = new Date(now); d.setDate(d.getDate() - i);
+          const ds = d.toISOString().slice(0, 10);
+          const count = store.symptoms.filter(s => s.time.slice(0, 10) === ds).length;
+          data.push({ label: ds.slice(5), count });
+        }
+      }
+      return data;
+    });
+
+    // ---- 严重度分布数据 ----
+    const pieData = computed(() => {
+      const counts = { mild: 0, moderate: 0, severe: 0, extreme: 0 };
+      filteredSymptoms.value.forEach(s => { if (counts[s.severity] !== undefined) counts[s.severity]++; });
+      return [
+        { value: counts.mild, name: '轻度', itemStyle: { color: '#68d391' } },
+        { value: counts.moderate, name: '中度', itemStyle: { color: '#f6ad55' } },
+        { value: counts.severe, name: '重度', itemStyle: { color: '#fc8181' } },
+        { value: counts.extreme, name: '极重度', itemStyle: { color: '#e53e3e' } },
+      ].filter(d => d.value > 0);
+    });
+
+    // ---- 诱因频率数据 ----
+    const triggerData = computed(() => {
+      const counts = {};
+      filteredSymptoms.value.forEach(s => {
+        s.triggers.forEach(t => { counts[t] = (counts[t] || 0) + 1; });
+      });
+      return Object.entries(counts)
+        .sort((a, b) => b[1] - a[1])
+        .map(([name, count]) => ({ name, count }));
+    });
+
+    // ---- 热力图数据 (24h × 7day) ----
+    const heatmapData = computed(() => {
+      const data = [];
+      const dayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+      const counts = {};
+      store.symptoms.forEach(s => {
+        const d = new Date(s.time);
+        const hour = d.getHours();
+        const weekday = d.getDay();
+        const key = `${hour}-${weekday}`;
+        counts[key] = (counts[key] || 0) + 1;
+      });
+      let maxVal = 0;
+      for (let h = 0; h < 24; h++) {
+        for (let w = 0; w < 7; w++) {
+          const val = counts[`${h}-${w}`] || 0;
+          if (val > maxVal) maxVal = val;
+          data.push([h, w, val]);
+        }
+      }
+      return { data, maxVal, dayNames };
+    });
+
+    // ---- 干预对比数据 ----
+    const interventionData = computed(() => {
+      const withInt = {}; // intervention_name -> { sum, count }
+      const withoutInt = { sum: 0, count: 0 };
+      filteredSymptoms.value.forEach(s => {
+        const score = scoreMap[s.severity] || 1;
+        if (s.intervention === '无' || !s.intervention) {
+          withoutInt.sum += score;
+          withoutInt.count++;
+        } else {
+          if (!withInt[s.intervention]) withInt[s.intervention] = { sum: 0, count: 0 };
+          withInt[s.intervention].sum += score;
+          withInt[s.intervention].count++;
+        }
+      });
+      const names = Object.keys(withInt).sort((a, b) => withInt[a].count - withInt[b].count);
+      const withAvg = names.map(n => Math.round(withInt[n].sum / withInt[n].count * 100) / 100);
+      const withoutAvg = withoutInt.count > 0
+        ? Math.round(withoutInt.sum / withoutInt.count * 100) / 100
+        : 0;
+      return { names, withAvg, withoutAvg, withoutCount: withoutInt.count };
+    });
+
+    // ---- 图表渲染 ----
+    const renderTrendChart = () => {
+      if (!trendChartRef.value) return;
+      const data = trendData.value;
+      const option = {
+        tooltip: { trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.95)', borderColor: '#e2e8f0', textStyle: { color: '#2d3748', fontSize: 12 } },
+        grid: { left: 40, right: 20, top: 16, bottom: 28 },
+        xAxis: { type: 'category', data: data.map(d => d.label), axisLine: { lineStyle: { color: '#e2e8f0' } }, axisLabel: { color: '#718096', fontSize: 10, rotate: data.length > 15 ? 45 : 0 } },
+        yAxis: { type: 'value', axisLine: { show: false }, splitLine: { lineStyle: { color: '#f0f4f8' } }, axisLabel: { color: '#718096', fontSize: 10 } },
+        series: [{
+          type: 'line', data: data.map(d => d.count), smooth: true, symbol: 'circle', symbolSize: 5,
+          lineStyle: { color: '#4299e1', width: 2.5 },
+          itemStyle: { color: '#4299e1', borderColor: '#fff', borderWidth: 2 },
+          areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(66,153,225,0.25)' }, { offset: 1, color: 'rgba(66,153,225,0.02)' }
+          ]) },
+        }],
+      };
+      const c = echarts.init(trendChartRef.value);
+      c.setOption(option);
+      charts.push(c);
+    };
+
+    const renderPieChart = () => {
+      if (!pieChartRef.value) return;
+      const data = pieData.value;
+      const total = data.reduce((s, d) => s + d.value, 0);
+      const option = {
+        tooltip: { trigger: 'item', formatter: '{b}: {c}次 ({d}%)' },
+        legend: { bottom: 4, textStyle: { fontSize: 11, color: '#718096' } },
+        graphic: total > 0 ? [{ type: 'text', left: 'center', top: '38%', style: { text: total + '', fontSize: 28, fontWeight: 'bold', fill: '#2d3748', textAlign: 'center' } }, { type: 'text', left: 'center', top: '52%', style: { text: '总发作', fontSize: 11, fill: '#a0aec0', textAlign: 'center' } }] : [],
+        series: [{
+          type: 'pie', radius: ['42%', '68%'], center: ['50%', '45%'],
+          label: { show: true, formatter: '{b}\n{d}%', fontSize: 10 },
+          data: data.length ? data : [{ value: 1, name: '暂无数据', itemStyle: { color: '#e2e8f0' } }],
+          itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
+          emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.15)' } },
+        }],
+      };
+      const c = echarts.init(pieChartRef.value);
+      c.setOption(option);
+      charts.push(c);
+    };
+
+    const renderTriggerChart = () => {
+      if (!triggerChartRef.value) return;
+      const data = triggerData.value;
+      const option = {
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: 'rgba(255,255,255,0.95)', borderColor: '#e2e8f0', textStyle: { color: '#2d3748', fontSize: 12 } },
+        grid: { left: 80, right: 30, top: 8, bottom: 16 },
+        xAxis: { type: 'value', axisLine: { show: false }, splitLine: { lineStyle: { color: '#f0f4f8' } }, axisLabel: { color: '#718096', fontSize: 10 } },
+        yAxis: { type: 'category', data: data.map(d => d.name), axisLine: { lineStyle: { color: '#e2e8f0' } }, axisLabel: { color: '#4a5568', fontSize: 11 } },
+        series: [{
+          type: 'bar', data: data.map(d => d.count), barWidth: '50%',
+          itemStyle: { borderRadius: [0, 6, 6, 0], color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+            { offset: 0, color: '#f6ad55' }, { offset: 1, color: '#ed8936' }
+          ]) },
+          label: { show: true, position: 'right', fontSize: 11, color: '#718096' },
+        }],
+      };
+      const c = echarts.init(triggerChartRef.value);
+      c.setOption(option);
+      charts.push(c);
+    };
+
+    const renderHeatmap = () => {
+      if (!heatmapRef.value) return;
+      const { data, maxVal, dayNames } = heatmapData.value;
+      const option = {
+        tooltip: { formatter: (p) => `${dayNames[p.value[1]]} ${String(p.value[0]).padStart(2,'0')}:00<br/>发作次数: <b>${p.value[2]}</b>` },
+        grid: { left: 50, right: 20, top: 8, bottom: 36 },
+        xAxis: { type: 'category', data: Array.from({length:24}, (_,i) => `${i}h`), splitArea: { show: true }, axisLabel: { fontSize: 9, color: '#718096' } },
+        yAxis: { type: 'category', data: dayNames, splitArea: { show: true }, axisLabel: { fontSize: 10, color: '#4a5568' } },
+        visualMap: { min: 0, max: maxVal || 5, calculable: true, orient: 'horizontal', left: 'center', bottom: 0, itemWidth: 12, itemHeight: 100, textStyle: { fontSize: 10 }, inRange: { color: ['#ebf8ff', '#bee3f8', '#63b3ed', '#3182ce', '#1a365d'] } },
+        series: [{
+          type: 'heatmap', data: data, emphasis: { itemStyle: { borderColor: '#333', borderWidth: 1 } },
+        }],
+      };
+      const c = echarts.init(heatmapRef.value);
+      c.setOption(option);
+      charts.push(c);
+    };
+
+    const renderInterventionChart = () => {
+      if (!interventionChartRef.value) return;
+      const { names, withAvg, withoutAvg, withoutCount } = interventionData.value;
+      if (!names.length) {
+        const c = echarts.init(interventionChartRef.value);
+        c.setOption({
+          graphic: { type: 'text', left: 'center', top: 'middle', style: { text: '暂无干预数据', fontSize: 13, fill: '#a0aec0' } }
+        });
+        charts.push(c);
+        return;
+      }
+      const option = {
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: 'rgba(255,255,255,0.95)', borderColor: '#e2e8f0', textStyle: { color: '#2d3748', fontSize: 12 } },
+        legend: { bottom: 4, textStyle: { fontSize: 10, color: '#718096' } },
+        grid: { left: 80, right: 20, top: 12, bottom: 36 },
+        xAxis: { type: 'value', max: 4, axisLine: { show: false }, splitLine: { lineStyle: { color: '#f0f4f8' } }, axisLabel: { color: '#718096', fontSize: 10, formatter: (v) => { const m = {1:'轻',2:'中',3:'重',4:'极'}; return m[v]||''; } } },
+        yAxis: { type: 'category', data: [...names, '无干预'], axisLine: { lineStyle: { color: '#e2e8f0' } }, axisLabel: { color: '#4a5568', fontSize: 11 } },
+        series: [
+          { name: '平均严重度', type: 'bar', data: [...withAvg, withoutAvg], barWidth: '45%',
+            itemStyle: { borderRadius: [0, 6, 6, 0], color: (p) => p.dataIndex === names.length ? '#cbd5e0' : new echarts.graphic.LinearGradient(0,0,1,0,[{offset:0,color:'#48bb78'},{offset:1,color:'#38a169'}]) },
+            label: { show: true, position: 'right', fontSize: 10, color: '#718096', formatter: (p) => p.value.toFixed(1) },
+          },
+        ],
+      };
+      const c = echarts.init(interventionChartRef.value);
+      c.setOption(option);
+      charts.push(c);
+    };
+
+    const renderAllCharts = () => {
+      charts.forEach(c => c.dispose());
+      charts = [];
+      nextTick(() => {
+        renderTrendChart();
+        renderPieChart();
+        renderTriggerChart();
+        renderHeatmap();
+        renderInterventionChart();
+      });
+    };
+
+    const setTimeTab = (key) => {
+      activeTimeTab.value = key;
+      renderAllCharts();
+    };
+
+    onMounted(() => renderAllCharts());
+    watch(() => store.symptoms.length, () => renderAllCharts());
+    onUnmounted(() => charts.forEach(c => c.dispose()));
+
+    return { activeTimeTab, timeTabs, setTimeTab, trendChartRef, pieChartRef, triggerChartRef, heatmapRef, interventionChartRef };
+  },
+};
 const app = createApp({
   setup() {
     // ---------- 全局状态 ----------
