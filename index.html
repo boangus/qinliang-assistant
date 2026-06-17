@@ -452,43 +452,29 @@ const SUB_PAGES = [
 const ALL_PAGES = [...TAB_PAGES, ...SUB_PAGES];
 
 const pageComponents = {};
+// 已有完整实现的子页面（不需要占位）
+const FULLY_IMPLEMENTED = ['diary-detail','stats','edu-detail','auricular','auricular-detail','constitution','constitution-result','scale','scale-result','vms-survey','treatment','about','profile'];
 ALL_PAGES.forEach(name => {
   const isTab = TAB_PAGES.includes(name);
+  if (FULLY_IMPLEMENTED.includes(name)) return; // 跳过，后面会定义完整组件
   const titleMap = {
     'home': '沁凉助手',
     'diary': '症状记录',
     'edu': '健康科普',
     'profile': '个人中心',
-    'diary-detail': '记录详情',
-    'stats': '数据统计',
-    'edu-detail': '文章详情',
-    'auricular': '耳穴压豆',
-    'auricular-detail': '穴位详情',
-    'constitution': '中医体质评估',
-    'constitution-result': '评估结果',
-    'scale': '量表评估',
-    'scale-result': '量表结果',
-    'vms-survey': 'VMS 研究问卷',
-    'treatment': '分级治疗推荐',
-    'about': '关于',
   };
-
   pageComponents[`page-${name}`] = {
     template: `
       <div>
-        <!-- 渐变头部 -->
         <div class="header-gradient">
-          ${!isTab ? '<div class="back-btn" @click="$root.goBack()">←</div>' : ''}
-          <div class="text-center ${isTab ? 'pt-2' : 'pl-10'}">
+          <div class="text-center pt-2">
             <h1 class="text-xl font-bold">${titleMap[name] || name}</h1>
           </div>
         </div>
-        <!-- 占位内容 -->
         <div class="p-4">
           <div class="card text-center py-12">
-            <div class="text-4xl mb-3">${isTab ? '🚧' : '📄'}</div>
+            <div class="text-4xl mb-3">🚧</div>
             <p class="text-gray-500 text-sm">「${titleMap[name] || name}」页面开发中</p>
-            <p class="text-gray-400 text-xs mt-2">即将呈现完整功能</p>
           </div>
         </div>
       </div>
@@ -1531,7 +1517,7 @@ pageComponents['page-edu'] = {
   },
 };
 
-// ==================== 个人中心页（增强）====================
+// ==================== 个人中心页（Task 21）====================
 pageComponents['page-profile'] = {
   template: `
     <div>
@@ -1543,11 +1529,53 @@ pageComponents['page-profile'] = {
           <div class="w-16 h-16 rounded-full bg-white/20 mx-auto flex items-center justify-center text-3xl mb-2">
             {{ store.profile.gender === 'female' ? '👩' : '👨' }}
           </div>
-          <p class="font-bold">{{ store.profile.name }}</p>
-          <p class="text-blue-100 text-xs">{{ store.profile.condition }}</p>
+          <p class="font-bold">{{ editing ? '' : store.profile.name }}</p>
+          <p class="text-blue-100 text-xs">{{ editing ? '' : store.profile.condition }}</p>
         </div>
       </div>
       <div class="px-4 -mt-4 relative z-10 space-y-2">
+        <!-- 用户信息编辑 -->
+        <div class="card">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-sm text-gray-700">👤 个人信息</h3>
+            <button class="btn-press text-xs px-3 py-1 rounded-full" :class="editing ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500'" @click="toggleEdit">
+              {{ editing ? '保存' : '编辑' }}
+            </button>
+          </div>
+          <div v-if="!editing" class="space-y-2">
+            <div class="flex justify-between text-sm"><span class="text-gray-400">姓名</span><span class="text-gray-700">{{ store.profile.name }}</span></div>
+            <div class="flex justify-between text-sm"><span class="text-gray-400">性别</span><span class="text-gray-700">{{ store.profile.gender === 'male' ? '男' : '女' }}</span></div>
+            <div class="flex justify-between text-sm"><span class="text-gray-400">年龄</span><span class="text-gray-700">{{ store.profile.age }} 岁</span></div>
+            <div class="flex justify-between text-sm"><span class="text-gray-400">病情</span><span class="text-gray-700 text-right max-w-[60%]">{{ store.profile.condition }}</span></div>
+          </div>
+          <div v-else class="space-y-3">
+            <div>
+              <label class="form-label">姓名</label>
+              <input type="text" v-model="editForm.name" class="form-input" />
+            </div>
+            <div>
+              <label class="form-label">性别</label>
+              <div class="flex gap-2">
+                <button class="btn-press flex-1 py-2 rounded-lg text-sm font-medium border-2 transition-all"
+                        :style="editForm.gender === 'male' ? {borderColor:'#4299e1',background:'#ebf8ff',color:'#2b6cb0'} : {borderColor:'#e2e8f0'}"
+                        @click="editForm.gender = 'male'">👨 男</button>
+                <button class="btn-press flex-1 py-2 rounded-lg text-sm font-medium border-2 transition-all"
+                        :style="editForm.gender === 'female' ? {borderColor:'#e040fb',background:'#fce4ec',color:'#c2185b'} : {borderColor:'#e2e8f0'}"
+                        @click="editForm.gender = 'female'">👩 女</button>
+              </div>
+            </div>
+            <div>
+              <label class="form-label">年龄</label>
+              <input type="number" v-model.number="editForm.age" min="1" max="150" class="form-input" />
+            </div>
+            <div>
+              <label class="form-label">病情描述</label>
+              <textarea v-model="editForm.condition" class="form-input" rows="2" placeholder="请描述您的主要症状或诊断"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- 功能入口菜单 -->
         <div class="card cursor-pointer btn-press" @click="$root.navigate('constitution')">
           <div class="flex items-center gap-3">
             <span class="text-2xl">🫀</span>
@@ -1558,7 +1586,7 @@ pageComponents['page-profile'] = {
         <div class="card cursor-pointer btn-press" @click="$root.navigate('scale')">
           <div class="flex items-center gap-3">
             <span class="text-2xl">📋</span>
-            <div class="flex-1"><div class="font-medium text-sm">量表评估</div><div class="text-xs text-gray-400">标准化症状评估工具</div></div>
+            <div class="flex-1"><div class="font-medium text-sm">睡眠质量评估</div><div class="text-xs text-gray-400">PSQI 匹兹堡睡眠质量指数</div></div>
             <span class="text-gray-300">›</span>
           </div>
         </div>
@@ -1569,6 +1597,13 @@ pageComponents['page-profile'] = {
             <span class="text-gray-300">›</span>
           </div>
         </div>
+        <div class="card cursor-pointer btn-press" @click="$root.navigate('treatment')">
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">💊</span>
+            <div class="flex-1"><div class="font-medium text-sm">分级治疗推荐</div><div class="text-xs text-gray-400">三级治疗路径与方案</div></div>
+            <span class="text-gray-300">›</span>
+          </div>
+        </div>
         <div class="card cursor-pointer btn-press" @click="$root.navigate('about')">
           <div class="flex items-center gap-3">
             <span class="text-2xl">ℹ️</span>
@@ -1576,14 +1611,49 @@ pageComponents['page-profile'] = {
             <span class="text-gray-300">›</span>
           </div>
         </div>
-        <div class="card mt-4">
-          <button class="btn-press w-full py-2 text-red-400 text-sm" @click="clearData">清除所有数据</button>
+
+        <!-- 数据管理 -->
+        <div class="card mt-2">
+          <h3 class="font-bold text-sm text-gray-700 mb-3">📁 数据管理</h3>
+          <div class="space-y-2">
+            <button class="btn-press w-full py-2.5 rounded-lg bg-blue-50 text-blue-600 text-sm font-medium flex items-center justify-center gap-2" @click="exportData">
+              📤 导出所有数据（JSON）
+            </button>
+            <button class="btn-press w-full py-2.5 rounded-lg bg-red-50 text-red-400 text-sm font-medium" @click="clearData">
+              🗑️ 清除所有数据
+            </button>
+          </div>
         </div>
       </div>
     </div>
   `,
   setup() {
     const store = Vue.inject('store');
+    const editing = ref(false);
+    const editForm = reactive({
+      name: store.profile.name,
+      gender: store.profile.gender,
+      age: store.profile.age,
+      condition: store.profile.condition,
+    });
+
+    const toggleEdit = () => {
+      if (editing.value) {
+        // 保存
+        store.profile.name = editForm.name;
+        store.profile.gender = editForm.gender;
+        store.profile.age = editForm.age;
+        store.profile.condition = editForm.condition;
+      } else {
+        // 进入编辑模式，同步当前值
+        editForm.name = store.profile.name;
+        editForm.gender = store.profile.gender;
+        editForm.age = store.profile.age;
+        editForm.condition = store.profile.condition;
+      }
+      editing.value = !editing.value;
+    };
+
     const clearData = () => {
       if (confirm('确定要清除所有数据吗？此操作不可撤销。')) {
         store.symptoms = [];
@@ -1594,7 +1664,27 @@ pageComponents['page-profile'] = {
         localStorage.removeItem(STORAGE_KEYS.scaleResults);
       }
     };
-    return { store, clearData };
+
+    const exportData = () => {
+      const data = {
+        exportTime: new Date().toISOString(),
+        appName: '沁凉助手',
+        version: 'v1.0.0',
+        profile: store.profile,
+        symptoms: store.symptoms,
+        constitution: store.constitution,
+        scaleResults: store.scaleResults,
+      };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `qinling_export_${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    return { store, editing, editForm, toggleEdit, clearData, exportData };
   },
 };
 
@@ -2464,6 +2554,1217 @@ const AURICULAR_POINTS = [
   { name: '肺', position: '耳甲腔内，心穴周围', indication: '宣肺解表、通调水道', technique: '用王不留行籽贴压于心穴周围敏感点', description: '肺穴位于耳甲腔内心穴周围区域。中医认为肺主皮毛、通调水道，与体表的卫气功能和水液代谢密切相关。刺激肺穴可以宣肺解表、固表止汗，对潮热盗汗、皮肤瘙痒等症状有良好的缓解作用。在耳穴治疗中，肺穴常与内分泌穴配合使用，协同调节体温。' },
   { name: '三焦', position: '耳甲腔底部，屏间切迹下方', indication: '调理全身气机、通利水道', technique: '王不留行籽贴压，按压时配合深呼吸', description: '三焦穴位于耳甲腔底部、屏间切迹下方。三焦是中医特有的概念，主持诸气、总司全身气机和气化功能。刺激三焦穴可以调理全身气机、通利水道、促进代谢，对潮热伴随的腹胀、水肿、小便不利等症状有改善作用。在综合耳穴治疗方案中，三焦穴起到协调全身的作用。' },
 ];
+
+// ==================== 中医体质评估数据（Task 16）====================
+const CONSTITUTION_TYPES = [
+  { key: 'pinghe', name: '平和质', desc: '阴阳气血调和，体态适中，面色润泽，精力充沛，为健康体质。', adjust: '保持良好的生活习惯，饮食均衡，适量运动，规律作息，定期体检。' },
+  { key: 'qixu', name: '气虚质', desc: '元气不足，容易疲乏、气短、自汗，声音低弱，易患感冒。', adjust: '多吃黄芪、山药、大枣等补气食物；适当进行太极拳、八段锦等柔和运动；避免过度劳累。' },
+  { key: 'yangxu', name: '阳虚质', desc: '阳气不足，畏寒怕冷、手足不温，喜热饮食，精神不振。', adjust: '多食羊肉、韭菜、桂圆等温阳食物；注意保暖，尤其腹部和足部；可艾灸关元、气海穴。' },
+  { key: 'yinxu', name: '阴虚质', desc: '阴液亏少，口燥咽干、手足心热，易失眠盗汗，大便干燥。', adjust: '多吃百合、银耳、枸杞等滋阴食物；避免辛辣燥热之品；保持充足睡眠，避免熬夜。' },
+  { key: 'tanshi', name: '痰湿质', desc: '痰湿凝聚，体形肥胖、腹部肥满，口黏苔腻，容易困倦。', adjust: '饮食清淡，少食肥甘厚味；坚持有氧运动；可常食薏米、冬瓜等祛湿食物。' },
+  { key: 'shire', name: '湿热质', desc: '湿热内蕴，面部油腻、口苦口臭，大便黏滞，易生痤疮。', adjust: '饮食清淡，忌辛辣油腻；多吃绿豆、苦瓜等清热食物；保持居住环境干燥通风。' },
+  { key: 'xueyu', name: '血瘀质', desc: '血行不畅，肤色晦暗、口唇紫暗，易有疼痛，女性多痛经。', adjust: '多食山楂、玫瑰花等活血食物；适当运动促进血液循环；避免久坐不动。' },
+  { key: 'qiyu', name: '气郁质', desc: '气机郁滞，情志抑郁、忧虑脆弱，胸胁胀满，善太息。', adjust: '多参加户外活动，保持心情舒畅；可饮用玫瑰花茶、佛手茶；学习调节情绪的方法。' },
+  { key: 'tebing', name: '特禀质', desc: '先天失常，过敏体质，易患荨麻疹、哮喘等过敏性疾病。', adjust: '避免接触过敏原；饮食清淡，忌食发物；适当运动增强体质；可进行脱敏治疗。' },
+];
+
+// 9种体质 × 8题 = 72题
+const CONSTITUTION_QUESTIONS = [
+  // ===== 平和质（8题）=====
+  { type: 'pinghe', q: '您精力充沛吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'pinghe', q: '您容易疲乏吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'pinghe', q: '您说话声音低弱无力吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'pinghe', q: '您感到闷闷不乐、情绪低沉吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'pinghe', q: '您比一般人耐受不了寒冷吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'pinghe', q: '您能适应外界自然和社会环境的变化吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'pinghe', q: '您容易失眠吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'pinghe', q: '您容易忘事吗？', options: ['从不','很少','有时','经常','总是'] },
+  // ===== 气虚质（8题）=====
+  { type: 'qixu', q: '您容易气短（呼吸短促、接不上气）吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'qixu', q: '您容易心慌吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'qixu', q: '您容易头晕或站起来时晕眩吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'qixu', q: '您比别人容易患感冒吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'qixu', q: '您喜欢安静、懒得说话吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'qixu', q: '您说话声音低弱无力吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'qixu', q: '您活动量稍大就容易出虚汗吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'qixu', q: '您稍有不适就容易疲乏吗？', options: ['从不','很少','有时','经常','总是'] },
+  // ===== 阳虚质（8题）=====
+  { type: 'yangxu', q: '您手脚发凉吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'yangxu', q: '您胃脘部、背部或腰膝部怕冷吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'yangxu', q: '您感到怕冷、衣服比别人穿得多吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'yangxu', q: '您比一般人耐受不了寒冷吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'yangxu', q: '您比别人容易患感冒吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'yangxu', q: '您吃（喝）凉的东西会感到不舒服或者怕吃（喝）凉的东西吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'yangxu', q: '您受凉或吃凉的食物后容易腹泻吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'yangxu', q: '您精神不振吗？', options: ['从不','很少','有时','经常','总是'] },
+  // ===== 阴虚质（8题）=====
+  { type: 'yinxu', q: '您感到手脚心发热吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'yinxu', q: '您感觉身体、脸上发热吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'yinxu', q: '您皮肤或口唇干吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'yinxu', q: '您口唇的颜色比一般人红吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'yinxu', q: '您容易便秘或大便干燥吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'yinxu', q: '您面部两颧潮红或偏红吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'yinxu', q: '您感到眼睛干涩吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'yinxu', q: '您感到口干咽燥、总想喝水吗？', options: ['从不','很少','有时','经常','总是'] },
+  // ===== 痰湿质（8题）=====
+  { type: 'tanshi', q: '您感到胸闷或腹部胀满吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'tanshi', q: '您身体困重、有沉重感吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'tanshi', q: '您腹部肥满松软吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'tanshi', q: '您有额部油脂分泌多的现象吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'tanshi', q: '您上眼睑比别人肿吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'tanshi', q: '您嘴里有黏黏的感觉吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'tanshi', q: '您平时痰多，特别是咽喉部总感到有痰堵着吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'tanshi', q: '您舌苔厚腻或有舌苔厚厚的感觉吗？', options: ['从不','很少','有时','经常','总是'] },
+  // ===== 湿热质（8题）=====
+  { type: 'shire', q: '您面部或鼻部有油腻感或油亮发光吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'shire', q: '您容易生痤疮或疮疖吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'shire', q: '您感到口苦或嘴里有异味吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'shire', q: '您大便黏滞不爽、有解不尽的感觉吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'shire', q: '您小便时尿道有发热感、尿色浓（深）吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'shire', q: '您带下色黄（白带颜色发黄）吗？（限女性回答）', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'shire', q: '您阴囊部位潮湿吗？（限男性回答）', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'shire', q: '您感到口干口苦、总想喝水吗？', options: ['从不','很少','有时','经常','总是'] },
+  // ===== 血瘀质（8题）=====
+  { type: 'xueyu', q: '您的皮肤在不知不觉中会出现青紫瘀斑吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'xueyu', q: '您两颧部有细微红丝（毛细血管扩张）吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'xueyu', q: '您身体上哪里疼痛吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'xueyu', q: '您面色晦暗或容易出现褐斑吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'xueyu', q: '您容易有黑眼圈吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'xueyu', q: '您容易忘事吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'xueyu', q: '您口唇颜色偏暗吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'xueyu', q: '您皮肤干燥、容易脱屑吗？', options: ['从不','很少','有时','经常','总是'] },
+  // ===== 气郁质（8题）=====
+  { type: 'qiyu', q: '您感到闷闷不乐、情绪低沉吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'qiyu', q: '您容易精神紧张、焦虑不安吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'qiyu', q: '您多愁善感、感情脆弱吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'qiyu', q: '您容易感到害怕或受到惊吓吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'qiyu', q: '您胁肋部或乳房胀痛吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'qiyu', q: '您无缘无故叹气吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'qiyu', q: '您咽喉部有异物感、且吐之不出、咽之不下吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'qiyu', q: '您容易心烦吗？', options: ['从不','很少','有时','经常','总是'] },
+  // ===== 特禀质（8题）=====
+  { type: 'tebing', q: '您没有感冒时也会打喷嚏吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'tebing', q: '您没有感冒时也会鼻塞、流鼻涕吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'tebing', q: '您有因季节变化、温度变化或异味而咳喘的现象吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'tebing', q: '您容易过敏（对药物、食物、气味、花粉或在季节交替、气候变化时）吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'tebing', q: '您的皮肤容易起荨麻疹吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'tebing', q: '您的皮肤因过敏出现过紫癜（紫红色瘀点、瘀斑）吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'tebing', q: '您的皮肤一抓就红，并出现抓痕吗？', options: ['从不','很少','有时','经常','总是'] },
+  { type: 'tebing', q: '您有因过敏而出现的支气管哮喘吗？', options: ['从不','很少','有时','经常','总是'] },
+];
+
+// 平和质反向计分的题目索引（在平和质内部的第5、7、8题，即索引4、6、7）
+const PINGHE_REVERSE = [4, 6, 7];
+
+// ==================== PSQI 睡眠质量指数量表（Task 18）====================
+const PSQI_CATEGORIES = [
+  { key: 'subjective', name: '主观睡眠质量', questions: [0] },
+  { key: 'sleeplatency', name: '入睡时间', questions: [1, 2] },
+  { key: 'sleeppduration', name: '睡眠时间', questions: [3] },
+  { key: 'sleepefficiency', name: '睡眠效率', questions: [4] },
+  { key: 'sleepdisturbance', name: '睡眠障碍', questions: [5, 6, 7, 8] },
+  { key: 'sleeppmedication', name: '催眠药物使用', questions: [9] },
+  { key: 'daydysfunction', name: '日间功能', questions: [10, 11] },
+];
+
+const PSQI_QUESTIONS = [
+  { q: '1. 近一个月，您通常晚上几点上床睡觉？', type: 'text', placeholder: '例如: 22:30' },
+  { q: '2. 近一个月，您通常需要多长时间才能入睡？', options: ['≤15分钟','16-30分钟','31-60分钟','>60分钟'], weights: [0,1,2,3] },
+  { q: '3. 近一个月，您通常早上几点起床？', type: 'text', placeholder: '例如: 06:30' },
+  { q: '4. 近一个月，您每晚实际睡眠时间大约为多少小时？', options: ['>7小时','6-7小时','5-6小时','<5小时'], weights: [0,1,2,3] },
+  { q: '5. 睡眠效率（实际睡眠时间/在床时间）', type: 'auto', compute: true },
+  { q: '6. 近一个月，您是否经常在夜间醒来？', options: ['无','偶尔（1次/周）','有时（2-3次/周）','经常（≥4次/周）'], weights: [0,1,2,3] },
+  { q: '7. 近一个月，您是否经常因疼痛而影响睡眠？', options: ['无','偶尔','有时','经常'], weights: [0,1,2,3] },
+  { q: '8. 近一个月，您是否经常因咳嗽或打鼾而影响睡眠？', options: ['无','偶尔','有时','经常'], weights: [0,1,2,3] },
+  { q: '9. 近一个月，您是否经常因感觉太冷或太热而影响睡眠？', options: ['无','偶尔','有时','经常'], weights: [0,1,2,3] },
+  { q: '10. 近一个月，您是否经常因做噩梦而影响睡眠？', options: ['无','偶尔','有时','经常'], weights: [0,1,2,3] },
+  { q: '11. 近一个月，您是否经常需要使用助眠药物？', options: ['无','偶尔','有时','经常/每晚'], weights: [0,1,2,3] },
+  { q: '12. 近一个月，您是否经常在白天感到困倦？', options: ['无','偶尔','有时','经常'], weights: [0,1,2,3] },
+];
+
+// ==================== VMS研究问卷步骤定义（Task 19）====================
+const VMS_STEPS = [
+  { title: '基本信息', icon: '📋' },
+  { title: '信念评估', icon: '💭' },
+  { title: 'VMS 频率', icon: '📊' },
+  { title: 'HFNS 评估', icon: '🌡️' },
+  { title: 'HFRDIS 评估', icon: '📋' },
+  { title: 'HFBBS-Men 评估', icon: '📝' },
+  { title: '治疗经历', icon: '💊' },
+  { title: '研究指标', icon: '📈' },
+  { title: '满意度', icon: '⭐' },
+];
+
+// HFNS (Hot Flash Night Sweat) - 5 items
+const HFNS_ITEMS = [
+  '潮热发作的频率让您感到困扰',
+  '盗汗（夜间出汗）影响了您的睡眠',
+  '潮热让您在社交场合感到尴尬',
+  '潮热影响了您的日常活动',
+  '您对潮热的控制感到不满意',
+];
+
+// HFRDIS (Hot Flash Related Daily Interference Scale) - 10 items
+const HFRDIS_ITEMS = [
+  '潮热影响了您的工作或日常活动',
+  '潮热影响了您与伴侣/配偶的关系',
+  '潮热影响了您与其他人的关系',
+  '潮热影响了您做家务的能力',
+  '潮热影响了您的休闲活动',
+  '潮热影响了您外出的意愿',
+  '潮热影响了您的情绪',
+  '潮热影响了您的集中注意力',
+  '潮热影响了您的睡眠',
+  '潮热影响了您对生活的整体满意度',
+];
+
+// ==================== 治疗建议数据（Task 20）====================
+const TREATMENT_TIER1 = [
+  {
+    name: '4-7-8 呼吸法',
+    icon: '🫁',
+    steps: ['舌尖抵住上颚前部','用鼻子安静吸气4秒','屏住呼吸7秒','用嘴呼气8秒','重复4个循环'],
+    precautions: '初期可能出现轻度头晕属正常反应；呼吸系统疾病者请先咨询医生',
+    evidence: 'A',
+  },
+  {
+    name: '腹式呼吸训练',
+    icon: '🧘',
+    steps: ['仰卧或坐位，双手放于腹部','用鼻子缓慢吸气，感受腹部鼓起','用嘴缓慢呼气，感受腹部回落','每日2次，每次10分钟'],
+    precautions: '饭后1小时内不宜练习；循序渐进，不要强迫',
+    evidence: 'A',
+  },
+  {
+    name: '温度控制策略',
+    icon: '🌡️',
+    steps: ['卧室温度保持18-22°C','随身携带便携风扇和冷敷贴','使用分层穿衣法便于增减','避免高温环境和辛辣食物'],
+    precautions: '空调避免直吹；冷敷时间不宜过长',
+    evidence: 'B',
+  },
+  {
+    name: '饮食回避与调节',
+    icon: '🍽️',
+    steps: ['减少咖啡因摄入（≤200mg/日）','避免酒精和辛辣食物','增加大豆制品和深海鱼摄入','保持每日1500-2000ml饮水量'],
+    precautions: '饮食调整需持续4-6周才能见效',
+    evidence: 'B',
+  },
+  {
+    name: '规律有氧运动',
+    icon: '🏃',
+    steps: ['每周3-5次，每次30分钟','选择快走、游泳或骑自行车','运动时间避开高温时段','运动后充分补水'],
+    precautions: '运动强度循序渐进；运动前做好热身',
+    evidence: 'B',
+  },
+];
+
+const TREATMENT_TIER2 = [
+  {
+    name: '耳穴压豆方案',
+    icon: '👂',
+    steps: ['主穴：内分泌、神门、交感','配穴：肾、肝、皮质下','贴压王不留行籽或磁珠','每日按压3-5次，每次30秒','每3-5天更换一次'],
+    precautions: '皮肤破损处禁止贴压；按压力度以酸胀为宜',
+    evidence: 'B',
+  },
+  {
+    name: '穴位按摩方案',
+    icon: '💆',
+    steps: ['三阴交：内踝尖上3寸，按揉2-3分钟','太溪：内踝尖与跟腱之间，点按1-2分钟','涌泉：足底前1/3处，睡前搓热100次','合谷：手背虎口处，按压2分钟'],
+    precautions: '力度适中，以酸胀为宜；孕妇禁用三阴交',
+    evidence: 'B',
+  },
+  {
+    name: '渐进性肌肉放松',
+    icon: '😌',
+    steps: ['从脚趾开始，依次绷紧各肌群','绷紧5秒后缓慢放松15秒','依次进行：脚→腿→腹→胸→手→臂→肩→面部','全身练习约15-20分钟'],
+    precautions: '不要过度用力绷紧；高血压患者避免屏气',
+    evidence: 'C',
+  },
+];
+
+const TREATMENT_TIER3 = [
+  {
+    name: '激素替代治疗（HRT）',
+    icon: '💊',
+    desc: '通过补充性激素恢复下丘脑体温调节功能，效果显著但需权衡风险。',
+    details: '低剂量雌二醇贴剂（25-50μg/日）或醋酸甲地孕酮，潮热频率可减少80-90%。',
+    evidence: 'A',
+  },
+  {
+    name: 'SSRI/SNRI 类抗抑郁药',
+    icon: '💊',
+    desc: '选择性5-HT再摄取抑制剂或5-HT/NE再摄取抑制剂，可减少潮热频率约50-60%。',
+    details: '常用药物：帕罗西汀、文拉法辛、度洛西汀。起效需2-4周。',
+    evidence: 'B',
+  },
+  {
+    name: '加巴喷丁',
+    icon: '💊',
+    desc: '抗惊厥药物，对夜间潮热和睡眠障碍有较好效果。',
+    details: '常用剂量300-900mg/日，分次口服。可能引起头晕和嗜睡。',
+    evidence: 'B',
+  },
+  {
+    name: 'NK3R 拮抗剂',
+    icon: '🧪',
+    desc: '新型非激素类药物，阻断KNDy神经元通路，减少潮热发作约60%。',
+    details: '代表药物Fezolinetant（45mg/日），2023年获FDA批准。不含激素成分。',
+    evidence: 'B',
+  },
+];
+
+// ==================== 占位页面组件 ====================
+
+// ==================== 中医体质评估页（Task 16）====================
+pageComponents['page-constitution'] = {
+  template: `
+    <div>
+      <div class="header-gradient" style="padding-bottom: 28px;">
+        <div class="back-btn" @click="$root.goBack()">←</div>
+        <div class="text-center pl-10">
+          <h1 class="text-xl font-bold">中医体质评估</h1>
+          <p class="text-blue-100 text-xs mt-1">{{ currentIndex + 1 }} / {{ questions.length }}</p>
+        </div>
+      </div>
+      <div class="px-4 -mt-4 relative z-10 pb-24">
+        <!-- 进度条 -->
+        <div class="card py-3">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs text-gray-500 font-medium">当前: {{ currentTypeInfo.name }}</span>
+            <span class="text-xs text-blue-500 font-bold">{{ Math.round(progress) }}%</span>
+          </div>
+          <div class="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div class="h-full rounded-full transition-all duration-300" style="background: linear-gradient(90deg, #2b6cb0, #4299e1);" :style="{ width: progress + '%' }"></div>
+          </div>
+          <!-- 体质类型指示器 -->
+          <div class="flex gap-1 mt-3 justify-center">
+            <div v-for="t in typeKeys" :key="t"
+                 class="w-6 h-1.5 rounded-full transition-all duration-300"
+                 :style="{ background: answeredTypes.includes(t) ? '#4299e1' : '#e2e8f0' }">
+            </div>
+          </div>
+        </div>
+
+        <!-- 题目卡片 -->
+        <div class="card" v-if="currentQuestion">
+          <div class="mb-2">
+            <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-500">{{ currentTypeInfo.name }}</span>
+          </div>
+          <h3 class="font-bold text-gray-800 text-base leading-relaxed mb-4">{{ currentQuestion.q }}</h3>
+          <div class="space-y-2">
+            <button v-for="(opt, idx) in currentQuestion.options" :key="idx"
+                    class="btn-press w-full text-left py-3 px-4 rounded-xl border-2 text-sm transition-all"
+                    :style="answers[currentIndex] === idx ? {borderColor:'#4299e1',background:'#ebf8ff',color:'#2b6cb0',fontWeight:'600'} : {borderColor:'#e2e8f0'}"
+                    @click="answers[currentIndex] = idx">
+              <span class="font-medium">{{ idx + 1 }}. </span>{{ opt }}
+            </button>
+          </div>
+        </div>
+
+        <!-- 导航按钮 -->
+        <div class="flex gap-3 mt-4">
+          <button class="btn-press flex-1 py-3 rounded-xl bg-gray-100 text-gray-600 font-semibold text-sm"
+                  :class="{ 'opacity-40 pointer-events-none': currentIndex === 0 }"
+                  @click="prevQuestion">← 上一题</button>
+          <button v-if="currentIndex < questions.length - 1"
+                  class="btn-press flex-1 py-3 rounded-xl text-white font-semibold text-sm"
+                  :class="answers[currentIndex] !== undefined ? 'bg-gradient-to-r from-blue-600 to-blue-400' : 'bg-gray-300 pointer-events-none'"
+                  @click="nextQuestion">下一题 →</button>
+          <button v-else
+                  class="btn-press flex-1 py-3 rounded-xl text-white font-semibold text-sm"
+                  :class="allAnswered ? 'bg-gradient-to-r from-green-500 to-green-400' : 'bg-gray-300 pointer-events-none'"
+                  @click="submitAssessment">提交评估 ✓</button>
+        </div>
+      </div>
+    </div>
+  `,
+  setup(props, { root }) {
+    const store = Vue.inject('store');
+    const questions = CONSTITUTION_QUESTIONS;
+    const typeKeys = CONSTITUTION_TYPES.map(t => t.key);
+    const answers = reactive(new Array(questions.length).fill(undefined));
+    const currentIndex = ref(0);
+
+    const currentQuestion = computed(() => questions[currentIndex.value]);
+    const currentTypeInfo = computed(() => CONSTITUTION_TYPES.find(t => t.key === questions[currentIndex.value].type));
+
+    const answeredTypes = computed(() => {
+      const types = new Set();
+      questions.forEach((q, i) => {
+        if (answers[i] !== undefined) types.add(q.type);
+      });
+      return [...types];
+    });
+
+    const progress = computed(() => {
+      const answered = answers.filter(a => a !== undefined).length;
+      return Math.round((answered / questions.length) * 100);
+    });
+
+    const allAnswered = computed(() => answers.every(a => a !== undefined));
+
+    const nextQuestion = () => {
+      if (currentIndex.value < questions.length - 1) currentIndex.value++;
+    };
+    const prevQuestion = () => {
+      if (currentIndex.value > 0) currentIndex.value--;
+    };
+
+    const submitAssessment = () => {
+      if (!allAnswered.value) return;
+      // 计算各维度分数
+      const scores = {};
+      const typeCounts = {};
+      CONSTITUTION_TYPES.forEach(t => { scores[t.key] = 0; typeCounts[t.key] = 0; });
+
+      questions.forEach((q, i) => {
+        const val = answers[i] + 1; // 1-5
+        let score;
+        if (q.type === 'pinghe' && PINGHE_REVERSE.includes(getLocalIndex(i, q.type))) {
+          score = 6 - val; // 反向计分
+        } else {
+          score = val;
+        }
+        scores[q.type] += score;
+        typeCounts[q.type]++;
+      });
+
+      // 计算平均分
+      const avgScores = {};
+      CONSTITUTION_TYPES.forEach(t => {
+        avgScores[t.key] = typeCounts[t.key] > 0 ? Math.round((scores[t.key] / typeCounts[t.key]) * 100) / 100 : 0;
+      });
+
+      // 确定主要体质
+      const sorted = CONSTITUTION_TYPES
+        .map(t => ({ key: t.key, score: avgScores[t.key] }))
+        .sort((a, b) => b.score - a.score);
+
+      const result = {
+        date: new Date().toISOString(),
+        primaryType: sorted[0].key,
+        scores: avgScores,
+        answers: [...answers],
+      };
+
+      store.constitution = result;
+      root.navigate('constitution-result', {});
+    };
+
+    // 获取题目在该体质类型内的本地索引
+    function getLocalIndex(idx, type) {
+      let localIdx = 0;
+      for (let i = 0; i < idx; i++) {
+        if (questions[i].type === type) localIdx++;
+      }
+      return localIdx;
+    }
+
+    return { questions, answers, currentIndex, currentQuestion, currentTypeInfo,
+             typeKeys, answeredTypes, progress, allAnswered,
+             nextQuestion, prevQuestion, submitAssessment };
+  },
+};
+
+// ==================== 体质评估结果页（Task 17）====================
+pageComponents['page-constitution-result'] = {
+  template: `
+    <div>
+      <div class="header-gradient" style="padding-bottom: 28px;">
+        <div class="back-btn" @click="$root.goBack()">←</div>
+        <div class="text-center pl-10">
+          <h1 class="text-xl font-bold">评估结果</h1>
+        </div>
+      </div>
+      <div class="px-4 -mt-4 relative z-10 pb-24 space-y-3" v-if="result">
+        <!-- 体质类型卡片 -->
+        <div class="card text-center" style="background: linear-gradient(135deg, #ebf8ff, #f0fff4);">
+          <div class="text-4xl mb-2">{{ typeEmoji }}</div>
+          <h2 class="font-bold text-xl text-gray-800 mb-1">{{ typeInfo.name }}</h2>
+          <p class="text-sm text-gray-500 leading-relaxed">{{ typeInfo.desc }}</p>
+        </div>
+        <!-- 雷达图 -->
+        <div class="card">
+          <h3 class="font-bold text-sm text-gray-700 mb-2">📊 九维体质雷达图</h3>
+          <div ref="radarRef" style="width:100%;height:280px;"></div>
+        </div>
+        <!-- 调理建议 -->
+        <div class="card">
+          <h3 class="font-bold text-sm text-gray-700 mb-2">💡 调理建议</h3>
+          <p class="text-sm text-gray-600 leading-relaxed">{{ typeInfo.adjust }}</p>
+        </div>
+        <!-- 各维度得分 -->
+        <div class="card">
+          <h3 class="font-bold text-sm text-gray-700 mb-3">📋 各维度得分</h3>
+          <div class="space-y-2">
+            <div v-for="t in allTypes" :key="t.key" class="flex items-center gap-2">
+              <span class="text-xs w-16 text-gray-500 flex-shrink-0">{{ t.name }}</span>
+              <div class="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+                <div class="h-full rounded-full transition-all duration-500"
+                     :style="{ width: (result.scores[t.key] / 5 * 100) + '%', background: t.key === result.primaryType ? '#4299e1' : '#cbd5e0' }"></div>
+              </div>
+              <span class="text-xs text-gray-400 w-8 text-right">{{ result.scores[t.key] }}</span>
+            </div>
+          </div>
+        </div>
+        <!-- 操作按钮 -->
+        <button class="btn-press w-full py-3 rounded-xl bg-white text-blue-600 font-semibold text-sm border border-blue-200"
+                @click="$root.navigate('constitution')">
+          🔄 重新评估
+        </button>
+      </div>
+      <!-- 无结果时的默认展示 -->
+      <div v-else class="px-4 -mt-4 relative z-10 pb-24">
+        <div class="card text-center py-12">
+          <div class="text-5xl mb-4">🫀</div>
+          <p class="text-gray-500 text-sm mb-4">尚未进行体质评估</p>
+          <button class="btn-press py-2 px-6 rounded-xl bg-blue-500 text-white text-sm font-semibold" @click="$root.navigate('constitution')">开始评估</button>
+        </div>
+      </div>
+    </div>
+  `,
+  setup(props, { root }) {
+    const store = Vue.inject('store');
+    const radarRef = ref(null);
+
+    // 如果没有真实结果，使用demo数据
+    const demoResult = {
+      date: new Date().toISOString(),
+      primaryType: 'yinxu',
+      scores: { pinghe: 3.25, qixu: 2.13, yangxu: 1.75, yinxu: 4.13, tanshi: 2.0, shire: 2.5, xueyu: 1.63, qiyu: 2.25, tebing: 1.5 },
+    };
+
+    const result = computed(() => store.constitution || demoResult);
+    const allTypes = CONSTITUTION_TYPES;
+
+    const typeInfo = computed(() => CONSTITUTION_TYPES.find(t => t.key === result.value.primaryType) || CONSTITUTION_TYPES[0]);
+
+    const typeEmoji = computed(() => {
+      const map = { pinghe:'😊', qixu:'😮‍💨', yangxu:'🥶', yinxu:'🔥', tanshi:'🫠', shire:'🥵', xueyu:'🩸', qiyu:'😔', tebing:'🤧' };
+      return map[result.value.primaryType] || '🫀';
+    });
+
+    onMounted(() => {
+      nextTick(() => {
+        if (!radarRef.value || typeof echarts === 'undefined') return;
+        const chart = echarts.init(radarRef.value);
+        const indicators = CONSTITUTION_TYPES.map(t => ({ name: t.name, max: 5 }));
+        const data = CONSTITUTION_TYPES.map(t => result.value.scores[t.key] || 0);
+        chart.setOption({
+          tooltip: {},
+          radar: {
+            indicator: indicators,
+            radius: '65%',
+            splitNumber: 5,
+            axisName: { color: '#4a5568', fontSize: 10 },
+          },
+          series: [{
+            type: 'radar',
+            data: [{
+              value: data,
+              name: '体质得分',
+              areaStyle: { color: 'rgba(66,153,225,0.2)' },
+              lineStyle: { color: '#4299e1', width: 2 },
+              itemStyle: { color: '#4299e1' },
+            }],
+          }],
+        });
+        onUnmounted(() => chart.dispose());
+      });
+    });
+
+    return { result, radarRef, allTypes, typeInfo, typeEmoji };
+  },
+};
+
+// ==================== 量表评估页 - PSQI（Task 18）====================
+pageComponents['page-scale'] = {
+  template: `
+    <div>
+      <div class="header-gradient" style="padding-bottom: 28px;">
+        <div class="back-btn" @click="$root.goBack()">←</div>
+        <div class="text-center pl-10">
+          <h1 class="text-xl font-bold">睡眠质量评估</h1>
+          <p class="text-blue-100 text-xs mt-1">PSQI 匹兹堡睡眠质量指数</p>
+        </div>
+      </div>
+      <div class="px-4 -mt-4 relative z-10 pb-24">
+        <!-- 分类标签 -->
+        <div class="flex gap-1.5 overflow-x-auto pb-2 -mx-4 px-4 mb-3">
+          <button v-for="(cat, ci) in categories" :key="cat.key"
+                  class="btn-press px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex-shrink-0"
+                  :class="activeCat === ci ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 border border-gray-200'"
+                  @click="activeCat = ci">
+            {{ cat.name }}
+          </button>
+        </div>
+        <!-- 进度条 -->
+        <div class="card py-3 mb-3">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-xs text-gray-500">进度</span>
+            <span class="text-xs text-blue-500 font-bold">{{ answeredCount }}/{{ questions.length }}</span>
+          </div>
+          <div class="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div class="h-full bg-blue-500 rounded-full transition-all duration-300" :style="{ width: (answeredCount / questions.length * 100) + '%' }"></div>
+          </div>
+        </div>
+        <!-- 当前分类的题目 -->
+        <div v-for="(qIdx, qi) in currentCatQuestions" :key="qIdx" class="card mb-3">
+          <h3 class="font-bold text-gray-800 text-sm leading-relaxed mb-3">{{ questions[qIdx].q }}</h3>
+          <div v-if="questions[qIdx].type === 'text'" class="space-y-2">
+            <input type="time" v-model="textAnswers[qIdx]" class="form-input text-center" />
+          </div>
+          <div v-else class="space-y-2">
+            <button v-for="(opt, oi) in questions[qIdx].options" :key="oi"
+                    class="btn-press w-full text-left py-2.5 px-4 rounded-xl border-2 text-sm transition-all"
+                    :style="answers[qIdx] === oi ? {borderColor:'#4299e1',background:'#ebf8ff',color:'#2b6cb0',fontWeight:'600'} : {borderColor:'#e2e8f0'}"
+                    @click="answers[qIdx] = oi">
+              {{ opt }}
+            </button>
+          </div>
+        </div>
+        <!-- 提交按钮 -->
+        <div class="flex gap-3 mt-4">
+          <button class="btn-press flex-1 py-3 rounded-xl text-white font-semibold text-sm"
+                  :class="canSubmit ? 'bg-gradient-to-r from-blue-600 to-blue-400' : 'bg-gray-300 pointer-events-none'"
+                  @click="submitScale">提交评估 ✓</button>
+        </div>
+      </div>
+    </div>
+  `,
+  setup(props, { root }) {
+    const store = Vue.inject('store');
+    const questions = PSQI_QUESTIONS;
+    const categories = PSQI_CATEGORIES;
+    const activeCat = ref(0);
+    const answers = reactive(new Array(questions.length).fill(undefined));
+    const textAnswers = reactive(new Array(questions.length).fill(''));
+
+    const currentCatQuestions = computed(() => categories[activeCat.value].questions);
+
+    const answeredCount = computed(() => {
+      let count = 0;
+      questions.forEach((q, i) => {
+        if (q.type === 'text' && textAnswers[i]) count++;
+        else if (q.type !== 'text' && q.type !== 'auto' && answers[i] !== undefined) count++;
+      });
+      return count;
+    });
+
+    const canSubmit = computed(() => answeredCount.value >= questions.length - 1);
+
+    const submitScale = () => {
+      if (!canSubmit.value) return;
+      // 计算各维度得分
+      const catScores = {};
+      categories.forEach(cat => {
+        let maxScore = 0;
+        cat.questions.forEach(qi => {
+          const q = questions[qi];
+          if (q.type === 'text') {
+            // 文本题按时间差估算
+            if (qi === 0 || qi === 2) { // 就寝和起床时间
+              // 简化：不计分
+            }
+          } else if (q.type === 'auto') {
+            // 睡眠效率自动计算
+            const sleepTime = parseTime(textAnswers[0]);
+            const wakeTime = parseTime(textAnswers[2]);
+            const sleepHours = parseFloat(answers[4] !== undefined ? [7, 6.5, 5.5, 4][answers[4]] || 6 : 6);
+            if (sleepTime !== null && wakeTime !== null) {
+              let bedHours = (wakeTime - sleepTime + 24 * 60) % (24 * 60) / 60;
+              if (bedHours < 1) bedHours += 24;
+              const efficiency = (sleepHours / bedHours) * 100;
+              let effScore = 0;
+              if (efficiency < 50) effScore = 3;
+              else if (efficiency < 65) effScore = 2;
+              else if (efficiency < 75) effScore = 1;
+              else effScore = 0;
+              maxScore = Math.max(maxScore, effScore);
+            }
+          } else if (q.weights && answers[qi] !== undefined) {
+            maxScore = Math.max(maxScore, q.weights[answers[qi]]);
+          }
+        });
+        catScores[cat.key] = Math.min(maxScore, 3);
+      });
+
+      const totalScore = Object.values(catScores).reduce((a, b) => a + b, 0);
+      let level = '良好';
+      if (totalScore > 5) level = '一般';
+      if (totalScore > 10) level = '较差';
+      if (totalScore > 15) level = '很差';
+
+      const result = {
+        date: new Date().toISOString(),
+        scaleName: 'PSQI',
+        totalScore,
+        level,
+        categoryScores: catScores,
+        answers: [...answers],
+        textAnswers: [...textAnswers],
+      };
+
+      store.scaleResults.push(result);
+      root.navigate('scale-result', { resultIndex: store.scaleResults.length - 1 });
+    };
+
+    function parseTime(str) {
+      if (!str) return null;
+      const parts = str.split(':');
+      if (parts.length !== 2) return null;
+      return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+    }
+
+    return { questions, categories, activeCat, answers, textAnswers,
+             currentCatQuestions, answeredCount, canSubmit, submitScale };
+  },
+};
+
+// ==================== 量表评估结果页（Task 18）====================
+pageComponents['page-scale-result'] = {
+  template: `
+    <div>
+      <div class="header-gradient" style="padding-bottom: 28px;">
+        <div class="back-btn" @click="$root.goBack()">←</div>
+        <div class="text-center pl-10">
+          <h1 class="text-xl font-bold">评估结果</h1>
+        </div>
+      </div>
+      <div class="px-4 -mt-4 relative z-10 pb-24 space-y-3" v-if="result">
+        <!-- 总分卡片 -->
+        <div class="card text-center" :style="{ background: levelBg }">
+          <div class="text-5xl font-bold mb-1" :style="{ color: levelColor }">{{ result.totalScore }}</div>
+          <div class="text-sm text-gray-500 mb-1">总分 / 21</div>
+          <div class="inline-block px-4 py-1 rounded-full text-sm font-bold" :style="{ background: levelColor, color: '#fff' }">{{ result.level }}</div>
+        </div>
+        <!-- 各维度得分 -->
+        <div class="card">
+          <h3 class="font-bold text-sm text-gray-700 mb-3">📊 各维度得分</h3>
+          <div class="space-y-3">
+            <div v-for="cat in categories" :key="cat.key">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-xs text-gray-600">{{ cat.name }}</span>
+                <span class="text-xs font-bold" :style="{ color: getCatColor(result.categoryScores[cat.key]) }">
+                  {{ result.categoryScores[cat.key] || 0 }} / 3
+                </span>
+              </div>
+              <div class="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div class="h-full rounded-full transition-all" :style="{ width: ((result.categoryScores[cat.key] || 0) / 3 * 100) + '%', background: getCatColor(result.categoryScores[cat.key]) }"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- 建议 -->
+        <div class="card">
+          <h3 class="font-bold text-sm text-gray-700 mb-2">💡 睡眠改善建议</h3>
+          <div class="text-sm text-gray-600 leading-relaxed space-y-2">
+            <p v-for="(tip, i) in suggestions" :key="i">• {{ tip }}</p>
+          </div>
+        </div>
+        <button class="btn-press w-full py-3 rounded-xl bg-white text-blue-600 font-semibold text-sm border border-blue-200"
+                @click="$root.navigate('scale')">
+          🔄 重新评估
+        </button>
+      </div>
+    </div>
+  `,
+  setup(props, { root }) {
+    const store = Vue.inject('store');
+    const pageParams = root.pageParams || {};
+    const categories = PSQI_CATEGORIES;
+
+    const result = computed(() => {
+      if (pageParams.resultIndex !== undefined) return store.scaleResults[pageParams.resultIndex];
+      return store.scaleResults.length ? store.scaleResults[store.scaleResults.length - 1] : null;
+    });
+
+    const levelColor = computed(() => {
+      if (!result.value) return '#a0aec0';
+      if (result.value.totalScore <= 5) return '#38a169';
+      if (result.value.totalScore <= 10) return '#d69e2e';
+      if (result.value.totalScore <= 15) return '#ed8936';
+      return '#e53e3e';
+    });
+
+    const levelBg = computed(() => {
+      if (!result.value) return '#f7fafc';
+      if (result.value.totalScore <= 5) return 'linear-gradient(135deg, #f0fff4, #e6ffed)';
+      if (result.value.totalScore <= 10) return 'linear-gradient(135deg, #fffff0, #fefcbf)';
+      if (result.value.totalScore <= 15) return 'linear-gradient(135deg, #fffaf0, #feebc8)';
+      return 'linear-gradient(135deg, #fff5f5, #fed7d7)';
+    });
+
+    const getCatColor = (score) => {
+      if (score === undefined || score === null) return '#e2e8f0';
+      if (score === 0) return '#38a169';
+      if (score === 1) return '#d69e2e';
+      if (score === 2) return '#ed8936';
+      return '#e53e3e';
+    };
+
+    const suggestions = computed(() => {
+      if (!result.value) return [];
+      const tips = [];
+      const cs = result.value.categoryScores;
+      if (cs.subjective >= 2) tips.push('您的主观睡眠质量较差，建议建立规律的睡前放松习惯，如温水浴、冥想。');
+      if (cs.sleeplatency >= 2) tips.push('入睡时间较长，建议避免睡前使用电子设备，保持卧室黑暗安静。');
+      if (cs.sleeppduration >= 2) tips.push('睡眠时间不足，建议保证每晚7-8小时的睡眠时间。');
+      if (cs.sleepefficiency >= 2) tips.push('睡眠效率较低，建议只在困倦时才上床，避免在床上做与睡眠无关的活动。');
+      if (cs.sleepdisturbance >= 2) tips.push('存在较多睡眠障碍，如频繁夜间醒来，建议排查是否有环境干扰因素。');
+      if (cs.sleeppmedication >= 1) tips.push('需要使用助眠药物，建议咨询医生是否需要调整治疗方案。');
+      if (cs.daydysfunction >= 2) tips.push('日间功能受影响较大，建议增加白天适度运动，减少午睡时间。');
+      if (tips.length === 0) tips.push('您的睡眠质量良好，继续保持健康的生活习惯。');
+      return tips;
+    });
+
+    return { result, categories, levelColor, levelBg, getCatColor, suggestions };
+  },
+};
+
+// ==================== VMS研究问卷页（Task 19）====================
+pageComponents['page-vms-survey'] = {
+  template: `
+    <div>
+      <div class="header-gradient" style="padding-bottom: 28px;">
+        <div class="back-btn" @click="$root.goBack()">←</div>
+        <div class="text-center pl-10">
+          <h1 class="text-xl font-bold">VMS 研究问卷</h1>
+          <p class="text-blue-100 text-xs mt-1">第 {{ currentStep + 1 }} 步 / {{ steps.length }}</p>
+        </div>
+      </div>
+      <div class="px-4 -mt-4 relative z-10 pb-24">
+        <!-- 进度条 -->
+        <div class="card py-3 mb-3">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-xs text-gray-500">{{ steps[currentStep].icon }} {{ steps[currentStep].title }}</span>
+            <span class="text-xs text-blue-500 font-bold">{{ Math.round((currentStep + 1) / steps.length * 100) }}%</span>
+          </div>
+          <div class="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div class="h-full rounded-full transition-all duration-300" style="background: linear-gradient(90deg, #2b6cb0, #4299e1);" :style="{ width: ((currentStep + 1) / steps.length * 100) + '%' }"></div>
+          </div>
+        </div>
+
+        <!-- Step 0: 基本信息 -->
+        <div v-if="currentStep === 0" class="card space-y-3">
+          <h3 class="font-bold text-gray-800 text-sm mb-2">📋 基本信息</h3>
+          <div>
+            <label class="form-label">年龄</label>
+            <input type="number" v-model.number="form.age" min="18" max="120" class="form-input" placeholder="请输入年龄" />
+          </div>
+          <div>
+            <label class="form-label">性别</label>
+            <div class="flex gap-2">
+              <button class="btn-press flex-1 py-2 rounded-lg text-sm font-medium border-2" :style="form.gender==='male'?{borderColor:'#4299e1',background:'#ebf8ff'}:{borderColor:'#e2e8f0'}" @click="form.gender='male'">👨 男</button>
+              <button class="btn-press flex-1 py-2 rounded-lg text-sm font-medium border-2" :style="form.gender==='female'?{borderColor:'#e040fb',background:'#fce4ec'}:{borderColor:'#e2e8f0'}" @click="form.gender='female'">👩 女</button>
+            </div>
+          </div>
+          <div>
+            <label class="form-label">ADT 治疗时间（月）</label>
+            <input type="number" v-model.number="form.adtMonths" min="0" class="form-input" placeholder="例如: 6" />
+          </div>
+        </div>
+
+        <!-- Step 1: 信念评估 -->
+        <div v-if="currentStep === 1" class="card space-y-3">
+          <h3 class="font-bold text-gray-800 text-sm mb-2">💭 潮热信念评估</h3>
+          <p class="text-xs text-gray-400 mb-2">请评估您对以下陈述的同意程度</p>
+          <div v-for="(item, idx) in beliefItems" :key="idx" class="mb-3">
+            <p class="text-xs text-gray-600 mb-2">{{ idx + 1 }}. {{ item }}</p>
+            <div class="flex gap-1">
+              <button v-for="s in 5" :key="s" class="btn-press flex-1 py-1.5 rounded-lg text-xs font-medium border transition-all"
+                      :style="form.beliefs[idx] === s ? {borderColor:'#4299e1',background:'#ebf8ff',color:'#2b6cb0'} : {borderColor:'#e2e8f0'}"
+                      @click="form.beliefs[idx] = s">{{ s }}</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2: VMS 频率 -->
+        <div v-if="currentStep === 2" class="card space-y-3">
+          <h3 class="font-bold text-gray-800 text-sm mb-2">📊 VMS 发作频率</h3>
+          <div>
+            <label class="form-label">过去一周，您平均每天潮热发作几次？</label>
+            <input type="number" v-model.number="form.vmsFrequency" min="0" class="form-input" placeholder="例如: 5" />
+          </div>
+          <div>
+            <label class="form-label">过去一周，您平均每天盗汗发作几次？</label>
+            <input type="number" v-model.number="form.nightSweats" min="0" class="form-input" placeholder="例如: 3" />
+          </div>
+          <div>
+            <label class="form-label">潮热严重程度（1=轻微，10=极严重）</label>
+            <input type="range" min="1" max="10" v-model.number="form.vmsSeverity" class="range-slider" />
+            <div class="text-center text-sm font-bold text-blue-600 mt-1">{{ form.vmsSeverity }}</div>
+          </div>
+        </div>
+
+        <!-- Step 3: HFNS 评估 -->
+        <div v-if="currentStep === 3" class="card">
+          <h3 class="font-bold text-gray-800 text-sm mb-1">🌡️ HFNS 评估</h3>
+          <p class="text-xs text-gray-400 mb-3">评估潮热/盗汗对您造成的困扰程度（1=无困扰，5=极度困扰）</p>
+          <div v-for="(item, idx) in hfnsItems" :key="idx" class="mb-3">
+            <p class="text-xs text-gray-600 mb-2">{{ item }}</p>
+            <div class="flex gap-1">
+              <button v-for="s in 5" :key="s" class="btn-press flex-1 py-1.5 rounded-lg text-xs font-medium border transition-all"
+                      :style="form.hfns[idx] === s ? {borderColor:'#e53e3e',background:'#fff5f5',color:'#c53030'} : {borderColor:'#e2e8f0'}"
+                      @click="form.hfns[idx] = s">{{ s }}</button>
+            </div>
+          </div>
+          <div class="text-center text-sm text-gray-400">HFNS 总分: <span class="font-bold text-blue-600">{{ hfnsTotal }}</span> / 25</div>
+        </div>
+
+        <!-- Step 4: HFRDIS 评估 -->
+        <div v-if="currentStep === 4" class="card">
+          <h3 class="font-bold text-gray-800 text-sm mb-1">📋 HFRDIS 评估</h3>
+          <p class="text-xs text-gray-400 mb-3">潮热对日常生活的干扰程度（0=无干扰，10=完全干扰）</p>
+          <div v-for="(item, idx) in hfrdisItems" :key="idx" class="mb-3">
+            <p class="text-xs text-gray-600 mb-2">{{ idx + 1 }}. {{ item }}</p>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-gray-400 w-4">0</span>
+              <input type="range" min="0" max="10" v-model.number="form.hfrdis[idx]" class="range-slider flex-1" />
+              <span class="text-xs text-gray-400 w-6 text-right">{{ form.hfrdis[idx] }}</span>
+            </div>
+          </div>
+          <div class="text-center text-sm text-gray-400">HFRDIS 总分: <span class="font-bold text-blue-600">{{ hfrdisTotal }}</span> / 100</div>
+        </div>
+
+        <!-- Step 5: HFBBS-Men -->
+        <div v-if="currentStep === 5" class="card space-y-3">
+          <h3 class="font-bold text-gray-800 text-sm mb-1">📝 HFBBS-Men 评估</h3>
+          <p class="text-xs text-gray-400 mb-3">男性潮热相关信念量表（1=完全不同意，7=完全同意）</p>
+          <div v-for="(item, idx) in hfbbsItems" :key="idx" class="mb-3">
+            <p class="text-xs text-gray-600 mb-2">{{ idx + 1 }}. {{ item }}</p>
+            <div class="flex gap-0.5">
+              <button v-for="s in 7" :key="s" class="btn-press flex-1 py-1 rounded text-xs font-medium border transition-all"
+                      :style="form.hfbbs[idx] === s ? {borderColor:'#805ad5',background:'#faf5ff',color:'#6b46c1'} : {borderColor:'#e2e8f0'}"
+                      @click="form.hfbbs[idx] = s">{{ s }}</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 6: 治疗经历 -->
+        <div v-if="currentStep === 6" class="card space-y-3">
+          <h3 class="font-bold text-gray-800 text-sm mb-2">💊 治疗经历</h3>
+          <div>
+            <label class="form-label">您目前使用的治疗方式</label>
+            <div class="checkbox-group">
+              <label v-for="t in treatmentOptions" :key="t" class="checkbox-item" :class="{ checked: form.treatments.includes(t) }">
+                <input type="checkbox" :value="t" @change="toggleArray(form.treatments, t)" />
+                <span>{{ t }}</span>
+              </label>
+            </div>
+          </div>
+          <div>
+            <label class="form-label">治疗满意度（1-10）</label>
+            <input type="range" min="1" max="10" v-model.number="form.treatmentSatisfaction" class="range-slider" />
+            <div class="text-center text-sm font-bold text-blue-600 mt-1">{{ form.treatmentSatisfaction }}</div>
+          </div>
+        </div>
+
+        <!-- Step 7: 研究指标 -->
+        <div v-if="currentStep === 7" class="card space-y-3">
+          <h3 class="font-bold text-gray-800 text-sm mb-2">📈 研究指标</h3>
+          <div>
+            <label class="form-label">QoL 生活质量评分（1-10）</label>
+            <input type="range" min="1" max="10" v-model.number="form.qolScore" class="range-slider" />
+            <div class="text-center text-sm font-bold text-blue-600 mt-1">{{ form.qolScore }}</div>
+          </div>
+          <div>
+            <label class="form-label">焦虑程度（GAD-7 简化，1-10）</label>
+            <input type="range" min="1" max="10" v-model.number="form.anxietyScore" class="range-slider" />
+            <div class="text-center text-sm font-bold text-blue-600 mt-1">{{ form.anxietyScore }}</div>
+          </div>
+          <div>
+            <label class="form-label">抑郁程度（PHQ-9 简化，1-10）</label>
+            <input type="range" min="1" max="10" v-model.number="form.depressionScore" class="range-slider" />
+            <div class="text-center text-sm font-bold text-blue-600 mt-1">{{ form.depressionScore }}</div>
+          </div>
+        </div>
+
+        <!-- Step 8: 满意度 -->
+        <div v-if="currentStep === 8" class="card space-y-3">
+          <h3 class="font-bold text-gray-800 text-sm mb-2">⭐ 满意度评估</h3>
+          <div>
+            <label class="form-label">您对沁凉助手的使用满意度</label>
+            <div class="flex gap-2 justify-center">
+              <button v-for="s in 5" :key="s" class="btn-press text-3xl" @click="form.appSatisfaction = s">
+                {{ s <= form.appSatisfaction ? '⭐' : '☆' }}
+              </button>
+            </div>
+          </div>
+          <div>
+            <label class="form-label">您是否愿意推荐给他人？</label>
+            <div class="flex gap-2">
+              <button class="btn-press flex-1 py-2 rounded-lg text-sm border-2" :style="form.recommend===true?{borderColor:'#38a169',background:'#f0fff4'}:{borderColor:'#e2e8f0'}" @click="form.recommend=true">👍 愿意</button>
+              <button class="btn-press flex-1 py-2 rounded-lg text-sm border-2" :style="form.recommend===false?{borderColor:'#e53e3e',background:'#fff5f5'}:{borderColor:'#e2e8f0'}" @click="form.recommend=false">👎 不愿意</button>
+            </div>
+          </div>
+          <div>
+            <label class="form-label">其他建议或意见</label>
+            <textarea v-model="form.feedback" class="form-input" rows="3" placeholder="可选..."></textarea>
+          </div>
+        </div>
+
+        <!-- 汇总结果页 -->
+        <div v-if="showSummary" class="card space-y-3">
+          <h3 class="font-bold text-gray-800 text-lg text-center mb-2">✅ 问卷完成</h3>
+          <div class="bg-blue-50 rounded-xl p-4 space-y-2">
+            <div class="flex justify-between text-sm"><span class="text-gray-500">HFNS 总分</span><span class="font-bold text-blue-600">{{ hfnsTotal }} / 25</span></div>
+            <div class="flex justify-between text-sm"><span class="text-gray-500">HFRDIS 总分</span><span class="font-bold text-blue-600">{{ hfrdisTotal }} / 100</span></div>
+            <div class="flex justify-between text-sm"><span class="text-gray-500">HFBBS-Men 总分</span><span class="font-bold text-purple-600">{{ hfbbsTotal }} / 49</span></div>
+            <div class="flex justify-between text-sm"><span class="text-gray-500">生活质量</span><span class="font-bold text-green-600">{{ form.qolScore }} / 10</span></div>
+            <div class="flex justify-between text-sm"><span class="text-gray-500">潮热频率</span><span class="font-bold text-orange-600">{{ form.vmsFrequency }} 次/日</span></div>
+          </div>
+          <div class="bg-green-50 rounded-xl p-3 text-center text-sm text-green-700 font-medium">🎉 感谢您的参与！问卷数据已保存。</div>
+        </div>
+
+        <!-- 导航按钮 -->
+        <div class="flex gap-3 mt-4" v-if="!showSummary">
+          <button class="btn-press flex-1 py-3 rounded-xl bg-gray-100 text-gray-600 font-semibold text-sm"
+                  :class="{ 'opacity-40 pointer-events-none': currentStep === 0 }"
+                  @click="currentStep--">← 上一步</button>
+          <button v-if="currentStep < steps.length - 1"
+                  class="btn-press flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-400 text-white font-semibold text-sm"
+                  @click="currentStep++">下一步 →</button>
+          <button v-else
+                  class="btn-press flex-1 py-3 rounded-xl bg-gradient-to-r from-green-500 to-green-400 text-white font-semibold text-sm"
+                  @click="finishSurvey">完成 ✓</button>
+        </div>
+        <div v-if="showSummary" class="mt-4">
+          <button class="btn-press w-full py-3 rounded-xl bg-blue-500 text-white font-semibold text-sm" @click="$root.goBack()">返回</button>
+        </div>
+      </div>
+    </div>
+  `,
+  setup(props, { root }) {
+    const store = Vue.inject('store');
+    const steps = VMS_STEPS;
+    const currentStep = ref(0);
+    const showSummary = ref(false);
+    const hfnsItems = HFNS_ITEMS;
+    const hfrdisItems = HFRDIS_ITEMS;
+    const hfbbsItems = [
+      '我相信潮热会随着时间自然好转',
+      '药物是治疗潮热最有效的方法',
+      '中医方法（如耳穴、针灸）对潮热有帮助',
+      '我能够通过行为方法控制潮热',
+      '潮热对我的生活质量影响不大',
+      '我担心潮热是严重疾病的征兆',
+    ];
+    const beliefItems = [
+      '潮热是衰老的正常表现，不需要治疗',
+      '潮热主要是心理因素造成的',
+      '中医调理比西药更安全有效',
+      '我有信心能够管理好潮热症状',
+    ];
+    const treatmentOptions = ['无治疗', 'HRT', 'SSRI/SNRI', '加巴喷丁', 'NK3R拮抗剂', '耳穴压豆', '穴位按摩', '腹式呼吸', '其他'];
+
+    const form = reactive({
+      age: 65, gender: 'male', adtMonths: 12,
+      beliefs: [undefined, undefined, undefined, undefined],
+      vmsFrequency: 5, nightSweats: 3, vmsSeverity: 5,
+      hfns: [undefined, undefined, undefined, undefined, undefined],
+      hfrdis: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      hfbbs: [undefined, undefined, undefined, undefined, undefined, undefined],
+      treatments: [], treatmentSatisfaction: 5,
+      qolScore: 5, anxietyScore: 4, depressionScore: 3,
+      appSatisfaction: 3, recommend: undefined, feedback: '',
+    });
+
+    const hfnsTotal = computed(() => form.hfns.reduce((s, v) => s + (v || 0), 0));
+    const hfrdisTotal = computed(() => form.hfrdis.reduce((s, v) => s + v, 0));
+    const hfbbsTotal = computed(() => form.hfbbs.reduce((s, v) => s + (v || 0), 0));
+
+    const toggleArray = (arr, val) => {
+      const idx = arr.indexOf(val);
+      if (idx >= 0) arr.splice(idx, 1);
+      else arr.push(val);
+    };
+
+    const finishSurvey = () => {
+      showSummary.value = true;
+    };
+
+    return { steps, currentStep, showSummary, form, hfnsItems, hfrdisItems, hfbbsItems,
+             beliefItems, treatmentOptions, hfnsTotal, hfrdisTotal, hfbbsTotal,
+             toggleArray, finishSurvey };
+  },
+};
+
+// ==================== 分级治疗推荐页（Task 20）====================
+pageComponents['page-treatment'] = {
+  template: `
+    <div>
+      <div class="header-gradient" style="padding-bottom: 28px;">
+        <div class="back-btn" @click="$root.goBack()">←</div>
+        <div class="text-center pl-10">
+          <h1 class="text-xl font-bold">分级治疗推荐</h1>
+          <p class="text-blue-100 text-xs mt-1">三级治疗路径与方案</p>
+        </div>
+      </div>
+      <div class="px-4 -mt-4 relative z-10 pb-24 space-y-4">
+        <!-- Tier 1 -->
+        <div>
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-lg">🌱</span>
+            <h2 class="font-bold text-green-700 text-sm">一级：生活方式干预</h2>
+          </div>
+          <div class="space-y-2">
+            <div v-for="(item, idx) in tier1" :key="idx" class="card cursor-pointer btn-press" @click="toggleExpand('t1', idx)">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="text-lg">{{ item.icon }}</span>
+                  <span class="font-bold text-sm text-gray-800">{{ item.name }}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs px-2 py-0.5 rounded-full font-bold" :class="evidenceClass(item.evidence)">{{ item.evidence === 'A' ? '强证据' : item.evidence === 'B' ? '中等证据' : '初步证据' }}</span>
+                  <span class="text-gray-400 text-sm">{{ expanded.t1[idx] ? '▲' : '▼' }}</span>
+                </div>
+              </div>
+              <div v-if="expanded.t1[idx]" class="mt-3 pt-3 border-t border-gray-100">
+                <div class="mb-2">
+                  <span class="text-xs font-bold text-gray-500">操作步骤：</span>
+                  <ol class="mt-1 space-y-1">
+                    <li v-for="(step, si) in item.steps" :key="si" class="text-xs text-gray-600 pl-4 relative"><span class="absolute left-0 text-green-500 font-bold">{{ si + 1 }}.</span>{{ step }}</li>
+                  </ol>
+                </div>
+                <div class="text-xs text-orange-600 bg-orange-50 rounded-lg p-2">⚠️ {{ item.precautions }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tier 2 -->
+        <div>
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-lg">🌿</span>
+            <h2 class="font-bold text-purple-700 text-sm">二级：中医特色疗法</h2>
+          </div>
+          <div class="space-y-2">
+            <div v-for="(item, idx) in tier2" :key="idx" class="card cursor-pointer btn-press" @click="toggleExpand('t2', idx)">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="text-lg">{{ item.icon }}</span>
+                  <span class="font-bold text-sm text-gray-800">{{ item.name }}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs px-2 py-0.5 rounded-full font-bold" :class="evidenceClass(item.evidence)">{{ item.evidence === 'A' ? '强证据' : item.evidence === 'B' ? '中等证据' : '初步证据' }}</span>
+                  <span class="text-gray-400 text-sm">{{ expanded.t2[idx] ? '▲' : '▼' }}</span>
+                </div>
+              </div>
+              <div v-if="expanded.t2[idx]" class="mt-3 pt-3 border-t border-gray-100">
+                <div class="mb-2">
+                  <span class="text-xs font-bold text-gray-500">操作步骤：</span>
+                  <ol class="mt-1 space-y-1">
+                    <li v-for="(step, si) in item.steps" :key="si" class="text-xs text-gray-600 pl-4 relative"><span class="absolute left-0 text-purple-500 font-bold">{{ si + 1 }}.</span>{{ step }}</li>
+                  </ol>
+                </div>
+                <div class="text-xs text-orange-600 bg-orange-50 rounded-lg p-2">⚠️ {{ item.precautions }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tier 3 -->
+        <div>
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-lg">💊</span>
+            <h2 class="font-bold text-blue-700 text-sm">三级：药物参考（仅供参考）</h2>
+          </div>
+          <div class="bg-yellow-50 rounded-xl p-3 mb-2">
+            <p class="text-xs text-yellow-700">⚠️ 以下药物信息仅供了解，请在专业医生指导下使用，切勿自行用药。</p>
+          </div>
+          <div class="space-y-2">
+            <div v-for="(item, idx) in tier3" :key="idx" class="card cursor-pointer btn-press" @click="toggleExpand('t3', idx)">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="text-lg">{{ item.icon }}</span>
+                  <span class="font-bold text-sm text-gray-800">{{ item.name }}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs px-2 py-0.5 rounded-full font-bold" :class="evidenceClass(item.evidence)">{{ item.evidence === 'A' ? '强证据' : item.evidence === 'B' ? '中等证据' : '初步证据' }}</span>
+                  <span class="text-gray-400 text-sm">{{ expanded.t3[idx] ? '▲' : '▼' }}</span>
+                </div>
+              </div>
+              <div v-if="expanded.t3[idx]" class="mt-3 pt-3 border-t border-gray-100">
+                <p class="text-xs text-gray-600 mb-2">{{ item.desc }}</p>
+                <p class="text-xs text-blue-600 bg-blue-50 rounded-lg p-2">{{ item.details }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `,
+  setup() {
+    const tier1 = TREATMENT_TIER1;
+    const tier2 = TREATMENT_TIER2;
+    const tier3 = TREATMENT_TIER3;
+
+    const expanded = reactive({ t1: {}, t2: {}, t3: {} });
+
+    const toggleExpand = (tier, idx) => {
+      expanded[tier][idx] = !expanded[tier][idx];
+    };
+
+    const evidenceClass = (level) => {
+      if (level === 'A') return 'bg-green-100 text-green-700';
+      if (level === 'B') return 'bg-blue-100 text-blue-700';
+      return 'bg-gray-100 text-gray-600';
+    };
+
+    return { tier1, tier2, tier3, expanded, toggleExpand, evidenceClass };
+  },
+};
+
+// ==================== 关于页面（Task 21/22）====================
+pageComponents['page-about'] = {
+  template: `
+    <div>
+      <div class="header-gradient" style="padding-bottom: 28px;">
+        <div class="back-btn" @click="$root.goBack()">←</div>
+        <div class="text-center pl-10">
+          <h1 class="text-xl font-bold">关于沁凉助手</h1>
+        </div>
+      </div>
+      <div class="px-4 -mt-4 relative z-10 pb-24 space-y-3">
+        <div class="card text-center py-8" style="background: linear-gradient(135deg, #ebf8ff, #e9d8fd);">
+          <div class="text-5xl mb-3">❄️</div>
+          <h2 class="font-bold text-xl text-gray-800">沁凉助手</h2>
+          <p class="text-sm text-gray-500 mt-1">潮热盗汗 AI 智能管理工具</p>
+          <p class="text-xs text-gray-400 mt-2">版本 v1.0.0</p>
+        </div>
+        <div class="card">
+          <h3 class="font-bold text-sm text-gray-700 mb-2">📋 产品介绍</h3>
+          <p class="text-sm text-gray-600 leading-relaxed">
+            沁凉助手是一款专为 ADT（雄激素剥夺治疗）相关潮热患者设计的智能管理工具。
+            通过症状记录、AI分析、中医体质评估、耳穴压豆指导等功能，帮助患者全面管理和缓解潮热症状。
+          </p>
+        </div>
+        <div class="card">
+          <h3 class="font-bold text-sm text-gray-700 mb-2">✨ 核心功能</h3>
+          <div class="space-y-1.5">
+            <div class="text-sm text-gray-600">📊 智能症状记录与趋势分析</div>
+            <div class="text-sm text-gray-600">🤖 AI 个性化建议与风险预测</div>
+            <div class="text-sm text-gray-600">👂 耳穴压豆穴位指导与计时</div>
+            <div class="text-sm text-gray-600">🫀 中医九种体质评估</div>
+            <div class="text-sm text-gray-600">😴 PSQI 睡眠质量评估</div>
+            <div class="text-sm text-gray-600">📋 VMS 研究问卷调查</div>
+            <div class="text-sm text-gray-600">💊 分级治疗路径推荐</div>
+            <div class="text-sm text-gray-600">📖 健康科普知识库</div>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="font-bold text-sm text-gray-700 mb-2">🔗 开源地址</h3>
+          <p class="text-sm text-gray-500">
+            本项目为参赛作品，基于 Web 技术构建。如需了解更多，请访问项目仓库。
+          </p>
+        </div>
+        <div class="card text-center">
+          <p class="text-xs text-gray-400">© 2024 沁凉助手 All Rights Reserved</p>
+        </div>
+      </div>
+    </div>
+  `,
+};
 
 const app = createApp({
   setup() {
