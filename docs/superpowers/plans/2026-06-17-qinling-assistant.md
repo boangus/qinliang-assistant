@@ -1,6 +1,6 @@
 # 沁凉助手 HTML Demo Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Build a single-file HTML Demo of the 沁凉助手 hot flash management tool for the TRAE AI Creativity Competition, replicating all 11 feature modules from the WeChat mini-program.
 
@@ -33,7 +33,7 @@ README.md               — Project description for GitHub
 **Files:**
 - Create: `index.html`
 
-- [ ] **Step 1: Create `index.html` with Vue 3, TailwindCSS, and basic app structure**
+- [x] **Step 1: Create `index.html` with Vue 3, TailwindCSS, and basic app structure**
 
 ```html
 <!DOCTYPE html>
@@ -196,11 +196,11 @@ README.md               — Project description for GitHub
 </html>
 ```
 
-- [ ] **Step 2: Verify in browser**
+- [x] **Step 2: Verify in browser**
 
 Open `index.html` in browser. Should see an empty page with bottom tab bar (4 tabs). Clicking tabs should highlight them.
 
-- [ ] **Step 3: Commit scaffold**
+- [x] **Step 3: Commit scaffold**
 
 ```bash
 git init && git add index.html && git commit -m "feat: scaffold Vue 3 app shell with tab bar navigation"
@@ -213,7 +213,7 @@ git init && git add index.html && git commit -m "feat: scaffold Vue 3 app shell 
 **Files:**
 - Modify: `index.html` (add data generator in `<script>` section)
 
-- [ ] **Step 1: Add demo data generator function after the STORAGE section**
+- [x] **Step 1: Add demo data generator function after the STORAGE section**
 
 ```javascript
 // ========== DEMO DATA GENERATOR ==========
@@ -298,18 +298,18 @@ function generateDemoData() {
 }
 ```
 
-- [ ] **Step 2: Call generator on app mount**
+- [x] **Step 2: Call generator on app mount**
 
 In the `createApp` setup, add:
 ```javascript
 onMounted(() => { generateDemoData(); });
 ```
 
-- [ ] **Step 3: Verify demo data**
+- [x] **Step 3: Verify demo data**
 
 Open browser console, check `JSON.parse(localStorage.getItem('qinling_symptoms')).length` — should be ~100-180 records.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add index.html && git commit -m "feat: add 30-day demo data generator for hot flash symptoms"
@@ -322,7 +322,7 @@ git add index.html && git commit -m "feat: add 30-day demo data generator for ho
 **Files:**
 - Modify: `index.html` (add placeholder page components + improve router)
 
-- [ ] **Step 1: Add placeholder page components**
+- [x] **Step 1: Add placeholder page components**
 
 Add these minimal page components before the `app.mount('#app')` line:
 
@@ -360,11 +360,11 @@ app.component('page-treatment', createPageComponent('treatment', '治疗推荐',
 app.component('page-profile', createPageComponent('profile', '个人中心', '<p>Loading...</p>'));
 ```
 
-- [ ] **Step 2: Verify all pages load**
+- [x] **Step 2: Verify all pages load**
 
 Click through each tab and verify the page header shows the correct title.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add index.html && git commit -m "feat: add page navigation system with placeholder components"
@@ -379,7 +379,7 @@ git add index.html && git commit -m "feat: add page navigation system with place
 **Files:**
 - Modify: `index.html` (replace page-home placeholder)
 
-- [ ] **Step 1: Implement the Dashboard component**
+- [x] **Step 1: Implement the Dashboard component**
 
 Replace the `page-home` component with a full implementation containing:
 - Today's episode count with trend arrow vs yesterday
@@ -389,11 +389,11 @@ Replace the `page-home` component with a full implementation containing:
 
 The component uses computed properties to calculate today's stats from `store.symptoms`.
 
-- [ ] **Step 2: Verify dashboard renders**
+- [x] **Step 2: Verify dashboard renders**
 
 Open browser — should see today's stats cards with real data from demo records.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add index.html && git commit -m "feat: implement dashboard overview cards with today's stats"
@@ -406,7 +406,7 @@ git add index.html && git commit -m "feat: implement dashboard overview cards wi
 **Files:**
 - Modify: `index.html` (add chart component + integrate into dashboard)
 
-- [ ] **Step 1: Add ECharts wrapper component**
+- [x] **Step 1: Add ECharts wrapper component**
 
 ```javascript
 app.component('echarts-chart', {
@@ -426,17 +426,17 @@ app.component('echarts-chart', {
 });
 ```
 
-- [ ] **Step 2: Add weekly trend chart to Dashboard**
+- [x] **Step 2: Add weekly trend chart to Dashboard**
 
 Add a computed property that generates the ECharts option for a dual-axis chart:
 - Bar chart: daily episode counts for last 7 days
 - Line chart: average severity for last 7 days
 
-- [ ] **Step 3: Verify chart renders**
+- [x] **Step 3: Verify chart renders**
 
 Open browser — should see a bar+line chart showing 7-day trends.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add index.html && git commit -m "feat: add weekly trend chart with ECharts dual-axis visualization"
@@ -449,20 +449,20 @@ git add index.html && git commit -m "feat: add weekly trend chart with ECharts d
 **Files:**
 - Modify: `index.html` (add AI suggestion component to dashboard)
 
-- [ ] **Step 1: Implement AI suggestion logic**
+- [x] **Step 1: Implement AI suggestion logic**
 
 Add a computed property that analyzes `store.symptoms` to generate:
 1. Top 2 high-probability time windows (based on hourly frequency)
 2. Top trigger (most common trigger across all records)
 3. Most effective intervention (intervention with lowest average severity)
 
-- [ ] **Step 2: Render suggestion card in dashboard**
+- [x] **Step 2: Render suggestion card in dashboard**
 
 Display the AI suggestions in a styled card with icons.
 
-- [ ] **Step 3: Verify suggestions show meaningful content**
+- [x] **Step 3: Verify suggestions show meaningful content**
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add index.html && git commit -m "feat: add AI suggestion card with time/trigger/intervention analysis"
@@ -475,7 +475,7 @@ git add index.html && git commit -m "feat: add AI suggestion card with time/trig
 **Files:**
 - Modify: `index.html` (add quick record sheet component)
 
-- [ ] **Step 1: Implement QuickRecord bottom sheet component**
+- [x] **Step 1: Implement QuickRecord bottom sheet component**
 
 A slide-up panel with:
 - Severity selector (4 buttons: mild/moderate/severe/extreme)
@@ -483,13 +483,13 @@ A slide-up panel with:
 - Duration slider (1-30 min)
 - Save button → pushes to `store.symptoms` and closes
 
-- [ ] **Step 2: Wire quick record button on dashboard**
+- [x] **Step 2: Wire quick record button on dashboard**
 
-- [ ] **Step 3: Verify quick record flow**
+- [x] **Step 3: Verify quick record flow**
 
 Click button → sheet slides up → select severity → save → card updates with new count.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add index.html && git commit -m "feat: add quick record floating panel with severity selection"
@@ -504,16 +504,16 @@ git add index.html && git commit -m "feat: add quick record floating panel with 
 **Files:**
 - Modify: `index.html` (replace page-diary placeholder)
 
-- [ ] **Step 1: Implement Diary list component**
+- [x] **Step 1: Implement Diary list component**
 
 - Group `store.symptoms` by date
 - Each group shows date header + record cards
 - Each card: time, severity color tag, triggers, duration
 - FAB button for new record → navigates to diary-detail
 
-- [ ] **Step 2: Verify diary list**
+- [x] **Step 2: Verify diary list**
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add index.html && git commit -m "feat: implement diary list page with date-grouped records"
@@ -526,7 +526,7 @@ git add index.html && git commit -m "feat: implement diary list page with date-g
 **Files:**
 - Modify: `index.html` (replace page-diary-detail placeholder)
 
-- [ ] **Step 1: Implement full record form**
+- [x] **Step 1: Implement full record form**
 
 Complete form with all fields from spec:
 - datetime-local picker
@@ -538,14 +538,14 @@ Complete form with all fields from spec:
 - Note textarea
 - Save / Delete buttons
 
-- [ ] **Step 2: Wire create + edit modes**
+- [x] **Step 2: Wire create + edit modes**
 
 - New record: empty form, save adds to store
 - Edit: pre-fill from `pageParams.id`, save updates existing record
 
-- [ ] **Step 3: Verify create and edit flows**
+- [x] **Step 3: Verify create and edit flows**
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add index.html && git commit -m "feat: implement diary detail form with full symptom fields"
@@ -558,20 +558,20 @@ git add index.html && git commit -m "feat: implement diary detail form with full
 **Files:**
 - Modify: `index.html` (replace page-stats placeholder)
 
-- [ ] **Step 1: Implement Stats page with frequency trend chart**
+- [x] **Step 1: Implement Stats page with frequency trend chart**
 
 - Day/Week/Month view toggle
 - ECharts line+area chart for episode frequency over time
 - Computed properties that aggregate symptoms by selected time range
 
-- [ ] **Step 2: Add severity distribution pie chart**
+- [x] **Step 2: Add severity distribution pie chart**
 
 - ECharts donut chart showing mild/moderate/severe/extreme proportions
 - Center label showing total count
 
-- [ ] **Step 3: Verify charts render with demo data**
+- [x] **Step 3: Verify charts render with demo data**
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add index.html && git commit -m "feat: implement stats page with trend line and severity pie charts"
@@ -584,21 +584,21 @@ git add index.html && git commit -m "feat: implement stats page with trend line 
 **Files:**
 - Modify: `index.html` (add more charts to stats page)
 
-- [ ] **Step 1: Add trigger frequency horizontal bar chart**
+- [x] **Step 1: Add trigger frequency horizontal bar chart**
 
 - Count occurrences of each trigger
 - Sort descending, show as horizontal bars
 
-- [ ] **Step 2: Add 24h×7day heatmap**
+- [x] **Step 2: Add 24h×7day heatmap**
 
 - ECharts heatmap: X=hour (0-23), Y=weekday (Mon-Sun)
 - Color intensity = episode count in that slot
 
-- [ ] **Step 3: Add intervention comparison chart**
+- [x] **Step 3: Add intervention comparison chart**
 
 - Grouped bar: with-intervention vs without-intervention average severity
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add index.html && git commit -m "feat: add trigger analysis, heatmap, and intervention comparison charts"
@@ -613,7 +613,7 @@ git add index.html && git commit -m "feat: add trigger analysis, heatmap, and in
 **Files:**
 - Modify: `index.html` (add AI engine functions + prediction display)
 
-- [ ] **Step 1: Implement time-pattern analysis**
+- [x] **Step 1: Implement time-pattern analysis**
 
 ```javascript
 function analyzeTimePatterns(symptoms) {
@@ -645,15 +645,15 @@ function severityValue(s) { return { mild: 1, moderate: 2, severe: 3, extreme: 4
 function severityLabel(s) { return { mild: '轻度', moderate: '中度', severe: '重度', extreme: '极重度' }[s] || s; }
 ```
 
-- [ ] **Step 2: Implement prediction output**
+- [x] **Step 2: Implement prediction output**
 
 For each hour of the next 24 hours, calculate risk level (high/medium/low) based on hourly probability. Display as a colored timeline.
 
-- [ ] **Step 3: Implement accuracy backtest**
+- [x] **Step 3: Implement accuracy backtest**
 
 Take the last 7 days, predict each day's episodes based on hourly patterns, compare with actual. Show accuracy percentage.
 
-- [ ] **Step 4: Integrate predictions into Dashboard AI card**
+- [x] **Step 4: Integrate predictions into Dashboard AI card**
 
 Replace the simple suggestion card with a richer AI panel showing:
 - 24-hour risk timeline
@@ -661,7 +661,7 @@ Replace the simple suggestion card with a richer AI panel showing:
 - Predicted accuracy
 - Personalized recommendations
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add index.html && git commit -m "feat: implement AI prediction engine with time-pattern analysis and backtesting"
@@ -676,19 +676,19 @@ git add index.html && git commit -m "feat: implement AI prediction engine with t
 **Files:**
 - Modify: `index.html` (replace page-education placeholder, add article data)
 
-- [ ] **Step 1: Add hardcoded article data**
+- [x] **Step 1: Add hardcoded article data**
 
 Add 13 articles across 5 categories as a JavaScript array, each with: id, title, category, summary, content (Markdown string).
 
-- [ ] **Step 2: Implement education list with category tabs**
+- [x] **Step 2: Implement education list with category tabs**
 
 - Category tab bar (all 5 categories + "全部")
 - Article cards: title, category tag, summary
 - Click → navigate to education-detail with article id
 
-- [ ] **Step 3: Verify article listing and filtering**
+- [x] **Step 3: Verify article listing and filtering**
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add index.html && git commit -m "feat: implement education article list with category filtering"
@@ -701,15 +701,15 @@ git add index.html && git commit -m "feat: implement education article list with
 **Files:**
 - Modify: `index.html` (replace page-education-detail placeholder)
 
-- [ ] **Step 1: Implement article detail with marked.js**
+- [x] **Step 1: Implement article detail with marked.js**
 
 - Load article by `pageParams.id`
 - Render `article.content` using `marked.parse()`
 - Style with TailwindCSS prose classes (or custom styles)
 
-- [ ] **Step 2: Verify Markdown rendering**
+- [x] **Step 2: Verify Markdown rendering**
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add index.html && git commit -m "feat: implement education detail page with Markdown rendering"
@@ -722,23 +722,23 @@ git add index.html && git commit -m "feat: implement education detail page with 
 **Files:**
 - Modify: `index.html` (replace page-auricular + page-auricular-detail placeholders)
 
-- [ ] **Step 1: Add 10 acupoint data**
+- [x] **Step 1: Add 10 acupoint data**
 
 Hardcoded array with: name, position, indication, pressing technique for all 10 acupoints.
 
-- [ ] **Step 2: Implement acupoint list page**
+- [x] **Step 2: Implement acupoint list page**
 
 - Card grid: acupoint name + one-line position
 - Click → navigate to auricular-detail
 
-- [ ] **Step 3: Implement acupoint detail page**
+- [x] **Step 3: Implement acupoint detail page**
 
 - Position method (text description)
 - Pressing technique
 - Main indications
 - **30-second countdown timer** with circular progress animation
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add index.html && git commit -m "feat: implement auricular acupoint guide with 10 acupoints and pressing timer"
@@ -753,24 +753,24 @@ git add index.html && git commit -m "feat: implement auricular acupoint guide wi
 **Files:**
 - Modify: `index.html` (replace page-constitution placeholder)
 
-- [ ] **Step 1: Add 72-question constitution data**
+- [x] **Step 1: Add 72-question constitution data**
 
 9 types × 8 questions each. Each question has 5 options (1-5 scale). Include reverse-scored items for 平和质.
 
-- [ ] **Step 2: Implement multi-step questionnaire UI**
+- [x] **Step 2: Implement multi-step questionnaire UI**
 
 - Progress bar at top
 - One question at a time with radio options
 - Next/Previous buttons
 - 72 questions total
 
-- [ ] **Step 3: Implement scoring logic**
+- [x] **Step 3: Implement scoring logic**
 
 - Calculate scores for each of 9 dimensions
 - Handle reverse scoring for 平和质 questions
 - Determine primary constitution type (highest non-平和质 score, or 平和质 if all low)
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add index.html && git commit -m "feat: implement 72-question TCM constitution assessment"
@@ -783,15 +783,15 @@ git add index.html && git commit -m "feat: implement 72-question TCM constitutio
 **Files:**
 - Modify: `index.html` (replace page-constitution-result placeholder)
 
-- [ ] **Step 1: Implement result display**
+- [x] **Step 1: Implement result display**
 
 - Constitution type name + description
 - ECharts radar chart showing all 9 dimension scores
 - Personalized adjustment suggestions based on type
 
-- [ ] **Step 2: Wire from constitution page → result page**
+- [x] **Step 2: Wire from constitution page → result page**
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add index.html && git commit -m "feat: implement constitution result page with radar chart"
@@ -804,29 +804,29 @@ git add index.html && git commit -m "feat: implement constitution result page wi
 **Files:**
 - Modify: `index.html` (replace page-scale + page-scale-result placeholders)
 
-- [ ] **Step 1: Add scale configuration data**
+- [x] **Step 1: Add scale configuration data**
 
 One pre-built scale (e.g., Pittsburgh Sleep Quality Index or similar) with categories, questions, scoring rules, and result templates.
 
-- [ ] **Step 2: Implement generic scale questionnaire UI**
+- [x] **Step 2: Implement generic scale questionnaire UI**
 
 - Category tabs
 - Questions with radio options
 - Progress indicator
 
-- [ ] **Step 3: Implement scoring engine**
+- [x] **Step 3: Implement scoring engine**
 
 - Support `sum`, `percentage`, `category_sum` rules
 - Handle reverse-scored questions
 - Match score to result templates
 
-- [ ] **Step 4: Implement result page**
+- [x] **Step 4: Implement result page**
 
 - Total score + level
 - Category breakdown
 - Suggestions
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add index.html && git commit -m "feat: implement generic scale assessment engine with scoring"
@@ -839,7 +839,7 @@ git add index.html && git commit -m "feat: implement generic scale assessment en
 **Files:**
 - Modify: `index.html` (replace page-vms-survey placeholder)
 
-- [ ] **Step 1: Implement 9-step VMS questionnaire wizard**
+- [x] **Step 1: Implement 9-step VMS questionnaire wizard**
 
 Steps:
 1. Basic info (age, diagnosis, treatment)
@@ -852,11 +852,11 @@ Steps:
 8. Research indicators
 9. Satisfaction
 
-- [ ] **Step 2: Implement standard scale scoring (HFNS, HFRDIS, HFBBS-Men)**
+- [x] **Step 2: Implement standard scale scoring (HFNS, HFRDIS, HFBBS-Men)**
 
-- [ ] **Step 3: Implement results summary page**
+- [x] **Step 3: Implement results summary page**
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add index.html && git commit -m "feat: implement 9-step VMS research questionnaire with standard scales"
@@ -871,14 +871,14 @@ git add index.html && git commit -m "feat: implement 9-step VMS research questio
 **Files:**
 - Modify: `index.html` (replace page-treatment placeholder)
 
-- [ ] **Step 1: Implement 3-tier treatment pathway**
+- [x] **Step 1: Implement 3-tier treatment pathway**
 
 - Tier 1: Lifestyle adjustments (breathing, environment, diet, exercise)
 - Tier 2: TCM non-pharmacological (auricular acupressure, acupressure, relaxation)
 - Tier 3: Medication reference (HRT, SSRI/SNRI, gabapentin, NK3R antagonist)
 - Each item: name, steps, precautions, evidence level badge
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add index.html && git commit -m "feat: implement 3-tier treatment recommendation pathway"
@@ -891,14 +891,14 @@ git add index.html && git commit -m "feat: implement 3-tier treatment recommenda
 **Files:**
 - Modify: `index.html` (replace page-profile placeholder)
 
-- [ ] **Step 1: Implement profile page**
+- [x] **Step 1: Implement profile page**
 
 - User info display + edit form (name, gender, age, condition)
 - Navigation links: constitution assessment, scales, VMS survey, about
 - Data management: clear data, export as JSON download
 - About section: product intro, version, links
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add index.html && git commit -m "feat: implement profile page with user info and data management"
@@ -915,7 +915,7 @@ git add index.html && git commit -m "feat: implement profile page with user info
 - Create: `libs/` directory with local library files
 - Create: `README.md`
 
-- [ ] **Step 1: Download CDN libraries to `libs/`**
+- [x] **Step 1: Download CDN libraries to `libs/`**
 
 ```bash
 mkdir libs
@@ -924,17 +924,17 @@ curl -o libs/echarts.min.js https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.
 curl -o libs/marked.min.js https://cdn.jsdelivr.net/npm/marked/marked.min.js
 ```
 
-- [ ] **Step 2: Update index.html to reference local libs**
+- [x] **Step 2: Update index.html to reference local libs**
 
 Replace CDN URLs with `libs/` local paths.
 
-- [ ] **Step 3: Add responsive polish**
+- [x] **Step 3: Add responsive polish**
 
 - Ensure all pages look good at 375px width
 - Fix any overflow/scrolling issues
 - Add missing transition animations
 
-- [ ] **Step 4: Create README.md**
+- [x] **Step 4: Create README.md**
 
 ```markdown
 # 沁凉助手 — 潮热盗汗AI智能管理工具
@@ -962,15 +962,15 @@ TRAE AI 创造力大赛 · 社会服务赛道参赛作品
 - 个人中心：信息管理 + 数据导出
 ```
 
-- [ ] **Step 5: Create Zip package for submission**
+- [x] **Step 5: Create Zip package for submission**
 
 ```bash
 Compress-Archive -Path index.html,libs,README.md -DestinationPath qinling-assistant.zip
 ```
 
-- [ ] **Step 6: Final test — open Zip in fresh browser, verify all features**
+- [x] **Step 6: Final test — open Zip in fresh browser, verify all features**
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add -A && git commit -m "feat: finalize offline package with local libs and README"
@@ -980,8 +980,8 @@ git add -A && git commit -m "feat: finalize offline package with local libs and 
 
 ## Self-Review Checklist
 
-- [ ] Spec coverage: All 11 modules from spec have corresponding tasks
-- [ ] Placeholder scan: No TBD/TODO in any task
-- [ ] Type consistency: Data models, function names, and property names consistent across tasks
-- [ ] Each task is independently testable
-- [ ] Total: 22 tasks across 8 phases
+- [x] Spec coverage: All 11 modules from spec have corresponding tasks
+- [x] Placeholder scan: No TBD/TODO in any task
+- [x] Type consistency: Data models, function names, and property names consistent across tasks
+- [x] Each task is independently testable
+- [x] Total: 22 tasks across 8 phases
