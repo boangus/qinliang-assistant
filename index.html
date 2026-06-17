@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>沁凉助手 | 潮热盗汗AI智能管理工具</title>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+  /* ========== 全局重置 ========== */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', sans-serif;
+    background: #f0f4f8;
+    color: #2d3748;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ========== App 容器 ========== */
+  #app {
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100vh;
+    background: #f7fafc;
+    position: relative;
+    box-shadow: 0 0 20px rgba(0,0,0,0.08);
+  }
+
+  /* ========== 页面切换过渡 ========== */
+  .page-enter-active,
+  .page-leave-active {
+    transition: opacity 0.25s ease, transform 0.25s ease;
+  }
+  .page-enter-from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  .page-leave-to {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+
+  /* ========== 底部弹出层过渡 ========== */
+  .sheet-enter-active,
+  .sheet-leave-active {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+  }
+  .sheet-enter-from,
+  .sheet-leave-to {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+
+  /* ========== 底部 Tab 栏 ========== */
+  .tab-bar {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 480px;
+    height: 56px;
+    background: #fff;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    z-index: 100;
+    box-shadow: 0 -2px 8px rgba(0,0,0,0.05);
+  }
+  .tab-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: color 0.2s;
+    color: #a0aec0;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tab-item.active {
+    color: #2b6cb0;
+  }
+  .tab-item .tab-icon {
+    font-size: 20px;
+    line-height: 1;
+    margin-bottom: 2px;
+  }
+  .tab-item .tab-label {
+    font-size: 10px;
+    font-weight: 500;
+  }
+
+  /* ========== 内容区域（底部留出 Tab 栏空间）========== */
+  .page-content {
+    padding-bottom: 64px;
+    min-height: 100vh;
+  }
+
+  /* ========== 渐变头部 ========== */
+  .header-gradient {
+    background: linear-gradient(135deg, #1a365d 0%, #2b6cb0 50%, #4299e1 100%);
+    color: #fff;
+    padding: 48px 16px 20px;
+    position: relative;
+  }
+  .header-gradient .back-btn {
+    position: absolute;
+    top: 44px;
+    left: 12px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.15);
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 18px;
+    transition: background 0.2s;
+  }
+  .header-gradient .back-btn:hover {
+    background: rgba(255,255,255,0.3);
+  }
+
+  /* ========== 卡片通用 ========== */
+  .card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    padding: 16px;
+    margin: 12px 16px;
+  }
+
+  /* ========== 按钮点击态 ========== */
+  .btn-press:active {
+    transform: scale(0.96);
+    transition: transform 0.1s;
+  }
+
+  /* ========== 滚动条美化 ========== */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e0; border-radius: 4px; }
+
+  /* ========== 遮罩层 ========== */
+  .overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 200;
+  }
+  .overlay-inner {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 480px;
+    background: #fff;
+    border-radius: 16px 16px 0 0;
+    padding: 20px 16px 32px;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- ==================== 页面内容区域 ==================== -->
+  <div class="page-content">
+    <transition name="page" mode="out-in">
+      <component :is="'page-' + currentPage" :key="currentPage + JSON.stringify(pageParams)" />
+    </transition>
+  </div>
+
+  <!-- ==================== 底部 Tab 栏 ==================== -->
+  <div class="tab-bar" v-show="!isSubPage">
+    <div v-for="tab in tabs" :key="tab.key"
+         class="tab-item btn-press"
+         :class="{ active: currentTab === tab.key }"
+         @click="switchTab(tab.key)">
+      <span class="tab-icon">{{ tab.icon }}</span>
+      <span class="tab-label">{{ tab.label }}</span>
+    </div>
+  </div>
+
+  <!-- ==================== 快速记录浮层 ==================== -->
+  <transition name="sheet">
+    <div v-if="showQuickRecord" class="overlay" @click.self="showQuickRecord = false">
+      <div class="overlay-inner">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-bold text-gray-800">快速记录</h3>
+          <span class="text-gray-400 cursor-pointer text-xl" @click="showQuickRecord = false">&times;</span>
+        </div>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-600 mb-2">严重程度</label>
+            <div class="flex gap-2">
+              <button v-for="s in severityOptions" :key="s.value"
+                      class="btn-press flex-1 py-2 rounded-lg text-sm font-medium border-2 transition-all"
+                      :class="quickRecord.severity === s.value
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 text-gray-500'"
+                      @click="quickRecord.severity = s.value">
+                {{ s.label }}
+              </button>
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-600 mb-2">时间</label>
+            <input type="datetime-local" v-model="quickRecord.time"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <button class="btn-press w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-400 text-white font-semibold text-base"
+                  @click="saveQuickRecord">
+            保存记录
+          </button>
+        </div>
+      </div>
+    </div>
+  </transition>
+</div>
+
+<script>
+const { createApp, ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } = Vue;
+
+// ==================== 常量定义 ====================
+const STORAGE_KEYS = {
+  symptoms: 'qinling_symptoms',
+  profile: 'qinling_profile',
+  constitution: 'qinling_constitution',
+  scaleResults: 'qinling_scale_results',
+};
+
+const SEVERITY_MAP = {
+  mild: { label: '轻度', color: '#68d391', bg: '#f0fff4' },
+  moderate: { label: '中度', color: '#f6ad55', bg: '#fffaf0' },
+  severe: { label: '重度', color: '#fc8181', bg: '#fff5f5' },
+  extreme: { label: '极重度', color: '#e53e3e', bg: '#fed7d7' },
+};
+
+const TRIGGERS = ['咖啡因', '酒精', '辛辣食物', '高温环境', '压力', '剧烈运动', '情绪波动'];
+const ACCOMPANYING = ['面部潮红', '心悸', '出汗', '失眠', '焦虑', '头痛'];
+const INTERVENTIONS = ['无', '腹式呼吸', '耳穴按压', '穴位按摩', '药物'];
+
+// ==================== Demo 数据生成器 ====================
+function generateDemoData() {
+  const records = [];
+  const now = new Date();
+  const totalDays = 30;
+  let id = 1;
+
+  for (let d = totalDays - 1; d >= 0; d--) {
+    const date = new Date(now);
+    date.setDate(date.getDate() - d);
+
+    // 后期天数症状递减、干预递增
+    const progress = 1 - d / totalDays; // 0→1 随天数增加
+    const baseCount = Math.round(5 - progress * 2.5); // 5次→2-3次
+    const count = Math.max(2, baseCount + Math.round((Math.random() - 0.5) * 2));
+
+    for (let i = 0; i < count; i++) {
+      const hour = weightedRandomHour();
+      const recordDate = new Date(date);
+      recordDate.setHours(hour, Math.floor(Math.random() * 60), 0, 0);
+
+      const severity = weightedSeverity();
+      const duration = severity === 'extreme'
+        ? 15 + Math.floor(Math.random() * 45)
+        : severity === 'severe'
+          ? 10 + Math.floor(Math.random() * 30)
+          : severity === 'moderate'
+            ? 5 + Math.floor(Math.random() * 20)
+            : 2 + Math.floor(Math.random() * 10);
+
+      // 后期干预使用增加
+      const interventionPool = progress > 0.5
+        ? INTERVENTIONS
+        : ['无', '无', '无', '腹式呼吸', '穴位按摩'];
+
+      const triggerCount = Math.random() < 0.3 ? 0 : 1 + Math.floor(Math.random() * 2);
+      const accompanyingCount = 1 + Math.floor(Math.random() * 3);
+
+      const shuffle = (arr) => {
+        const a = [...arr];
+        for (let i = a.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+      };
+
+      records.push({
+        id: `demo-${id++}`,
+        time: recordDate.toISOString(),
+        severity,
+        duration,
+        triggers: shuffle(TRIGGERS).slice(0, triggerCount),
+        accompanying: shuffle(ACCOMPANYING).slice(0, accompanyingCount),
+        intervention: interventionPool[Math.floor(Math.random() * interventionPool.length)],
+        note: '',
+      });
+    }
+  }
+
+  // 按时间排序
+  records.sort((a, b) => new Date(a.time) - new Date(b.time));
+  return records;
+}
+
+/** 加权小时分布：14-16 和 2-4 为高发 */
+function weightedRandomHour() {
+  const weights = [
+    1,1,3,3,2,1, // 0-5: 夜间高发 2-4
+    1,1,1,1,1,1, // 6-11
+    2,2,5,5,4,3, // 12-17: 午后高发 14-16
+    2,2,1,1,1,1  // 18-23
+  ];
+  const total = weights.reduce((a, b) => a + b, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < weights.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return i;
+  }
+  return 0;
+}
+
+/** 加权严重度分布 */
+function weightedSeverity() {
+  const r = Math.random();
+  if (r < 0.35) return 'mild';
+  if (r < 0.75) return 'moderate';
+  if (r < 0.95) return 'severe';
+  return 'extreme';
+}
+
+// ==================== Tab 定义 ====================
+const TABS = [
+  { key: 'home', icon: '🏠', label: '首页', page: 'page-home' },
+  { key: 'diary', icon: '📝', label: '记录', page: 'page-diary' },
+  { key: 'edu', icon: '📖', label: '科普', page: 'page-edu' },
+  { key: 'profile', icon: '👤', label: '我的', page: 'page-profile' },
+];
+
+// ==================== 占位页面组件 ====================
+const TAB_PAGES = ['home', 'diary', 'edu', 'profile'];
+const SUB_PAGES = [
+  'diary-detail', 'stats', 'edu-detail', 'auricular', 'auricular-detail',
+  'constitution', 'constitution-result', 'scale', 'scale-result',
+  'vms-survey', 'treatment', 'about'
+];
+const ALL_PAGES = [...TAB_PAGES, ...SUB_PAGES];
+
+const pageComponents = {};
+ALL_PAGES.forEach(name => {
+  const isTab = TAB_PAGES.includes(name);
+  const titleMap = {
+    'home': '沁凉助手',
+    'diary': '症状记录',
+    'edu': '健康科普',
+    'profile': '个人中心',
+    'diary-detail': '记录详情',
+    'stats': '数据统计',
+    'edu-detail': '文章详情',
+    'auricular': '耳穴压豆',
+    'auricular-detail': '穴位详情',
+    'constitution': '中医体质评估',
+    'constitution-result': '评估结果',
+    'scale': '量表评估',
+    'scale-result': '量表结果',
+    'vms-survey': 'VMS 研究问卷',
+    'treatment': '分级治疗推荐',
+    'about': '关于',
+  };
+
+  pageComponents[`page-${name}`] = {
+    template: `
+      <div>
+        <!-- 渐变头部 -->
+        <div class="header-gradient">
+          ${!isTab ? '<div class="back-btn" @click="$root.goBack()">←</div>' : ''}
+          <div class="text-center ${isTab ? 'pt-2' : 'pl-10'}">
+            <h1 class="text-xl font-bold">${titleMap[name] || name}</h1>
+          </div>
+        </div>
+        <!-- 占位内容 -->
+        <div class="p-4">
+          <div class="card text-center py-12">
+            <div class="text-4xl mb-3">${isTab ? '🚧' : '📄'}</div>
+            <p class="text-gray-500 text-sm">「${titleMap[name] || name}」页面开发中</p>
+            <p class="text-gray-400 text-xs mt-2">即将呈现完整功能</p>
+          </div>
+        </div>
+      </div>
+    `,
+  };
+});
+
+// ==================== 首页增强（展示概览数据）====================
+pageComponents['page-home'] = {
+  template: `
+    <div>
+      <div class="header-gradient" style="padding-bottom: 32px;">
+        <div class="text-center pt-2">
+          <h1 class="text-xl font-bold">沁凉助手</h1>
+          <p class="text-blue-100 text-xs mt-1">潮热盗汗 AI 智能管理</p>
+        </div>
+      </div>
+      <div class="px-4 -mt-6 relative z-10 space-y-3">
+        <!-- 今日概览 -->
+        <div class="card">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-bold text-gray-800">今日概览</h2>
+            <span class="text-xs text-gray-400">{{ todayDate }}</span>
+          </div>
+          <div class="grid grid-cols-3 gap-3 text-center">
+            <div class="bg-blue-50 rounded-xl py-3">
+              <div class="text-2xl font-bold text-blue-600">{{ todayCount }}</div>
+              <div class="text-xs text-gray-500 mt-1">今日发作</div>
+            </div>
+            <div class="bg-amber-50 rounded-xl py-3">
+              <div class="text-2xl font-bold text-amber-500">{{ avgSeverityLabel }}</div>
+              <div class="text-xs text-gray-500 mt-1">平均严重度</div>
+            </div>
+            <div class="bg-green-50 rounded-xl py-3">
+              <div class="text-2xl font-bold text-green-500">{{ consecutiveDays }}</div>
+              <div class="text-xs text-gray-500 mt-1">连续记录(天)</div>
+            </div>
+          </div>
+        </div>
+        <!-- AI 建议卡片 -->
+        <div class="card" style="background: linear-gradient(135deg, #ebf8ff, #e9d8fd); border: 1px solid #e9d8fd;">
+          <div class="flex items-start gap-3">
+            <span class="text-2xl">🤖</span>
+            <div>
+              <h3 class="font-bold text-purple-700 text-sm mb-1">AI 助手建议</h3>
+              <p class="text-xs text-gray-600 leading-relaxed">{{ aiSuggestion }}</p>
+            </div>
+          </div>
+        </div>
+        <!-- 快速记录入口 -->
+        <button class="btn-press w-full card flex items-center justify-center gap-2 py-4 border-2 border-dashed border-blue-200 hover:border-blue-400 transition-colors"
+                @click="$root.showQuickRecord = true">
+          <span class="text-xl">➕</span>
+          <span class="text-blue-600 font-semibold">快速记录一次潮热</span>
+        </button>
+        <!-- 功能快捷入口 -->
+        <div class="grid grid-cols-2 gap-3">
+          <button class="btn-press card text-center py-4" @click="$root.navigate('stats')">
+            <div class="text-2xl mb-1">📊</div>
+            <div class="text-sm font-medium text-gray-700">数据统计</div>
+          </button>
+          <button class="btn-press card text-center py-4" @click="$root.navigate('auricular')">
+            <div class="text-2xl mb-1">👂</div>
+            <div class="text-sm font-medium text-gray-700">耳穴指导</div>
+          </button>
+          <button class="btn-press card text-center py-4" @click="$root.navigate('constitution')">
+            <div class="text-2xl mb-1">🫀</div>
+            <div class="text-sm font-medium text-gray-700">体质评估</div>
+          </button>
+          <button class="btn-press card text-center py-4" @click="$root.navigate('treatment')">
+            <div class="text-2xl mb-1">💊</div>
+            <div class="text-sm font-medium text-gray-700">治疗推荐</div>
+          </button>
+        </div>
+        <div style="height: 16px;"></div>
+      </div>
+    </div>
+  `,
+  setup() {
+    const store = Vue.inject('store');
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0, 10);
+
+    const todayDate = computed(() => {
+      const d = new Date();
+      return `${d.getMonth()+1}月${d.getDate()}日`;
+    });
+
+    const todaySymptoms = computed(() =>
+      store.symptoms.filter(s => s.time.slice(0, 10) === todayStr)
+    );
+
+    const todayCount = computed(() => todaySymptoms.value.length);
+
+    const avgSeverityLabel = computed(() => {
+      if (!todaySymptoms.value.length) return '无';
+      const scoreMap = { mild: 1, moderate: 2, severe: 3, extreme: 4 };
+      const avg = todaySymptoms.value.reduce((sum, s) => sum + (scoreMap[s.severity] || 1), 0) / todaySymptoms.value.length;
+      if (avg < 1.5) return '轻度';
+      if (avg < 2.5) return '中度';
+      if (avg < 3.5) return '重度';
+      return '极重';
+    });
+
+    const consecutiveDays = computed(() => {
+      const dates = new Set(store.symptoms.map(s => s.time.slice(0, 10)));
+      let count = 0;
+      const d = new Date();
+      while (true) {
+        const ds = d.toISOString().slice(0, 10);
+        if (dates.has(ds)) {
+          count++;
+          d.setDate(d.getDate() - 1);
+        } else break;
+      }
+      return count;
+    });
+
+    const aiSuggestion = computed(() => {
+      const recent = store.symptoms.slice(-20);
+      if (!recent.length) return '开始记录您的潮热症状，AI 将为您提供个性化建议。';
+      const triggers = {};
+      recent.forEach(s => s.triggers.forEach(t => { triggers[t] = (triggers[t]||0) + 1; }));
+      const topTrigger = Object.entries(triggers).sort((a,b) => b[1]-a[1])[0];
+      if (topTrigger) {
+        return `近期数据显示「${topTrigger[0]}」是您的主要诱因（出现 ${topTrigger[1]} 次），建议适当减少相关暴露。下午 14-16 点为高发时段，可提前进行腹式呼吸。`;
+      }
+      return '保持每日记录，AI 将为您提供更精准的个性化建议。';
+    });
+
+    return { todayDate, todayCount, avgSeverityLabel, consecutiveDays, aiSuggestion };
+  },
+};
+
+// ==================== 记录列表页（增强）====================
+pageComponents['page-diary'] = {
+  template: `
+    <div>
+      <div class="header-gradient" style="padding-bottom: 28px;">
+        <div class="text-center pt-2">
+          <h1 class="text-xl font-bold">症状记录</h1>
+          <p class="text-blue-100 text-xs mt-1">共 {{ store.symptoms.length }} 条记录</p>
+        </div>
+      </div>
+      <div class="px-4 -mt-4 relative z-10">
+        <button class="btn-press w-full card flex items-center justify-center gap-2 py-3 border-2 border-dashed border-blue-200 mb-3"
+                @click="$root.showQuickRecord = true">
+          <span class="text-blue-500">➕</span>
+          <span class="text-blue-600 font-medium text-sm">新增记录</span>
+        </button>
+        <!-- 按日期分组 -->
+        <div v-for="group in groupedRecords" :key="group.date" class="mb-3">
+          <div class="text-xs text-gray-400 font-medium px-1 mb-2">{{ group.label }}</div>
+          <div v-for="r in group.records" :key="r.id" class="card mb-2 py-3 cursor-pointer" @click="$root.navigate('diary-detail', { id: r.id })">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="inline-block w-2 h-2 rounded-full" :style="{ background: severityColor(r.severity) }"></span>
+                <span class="text-sm text-gray-600">{{ formatTime(r.time) }}</span>
+              </div>
+              <span class="text-xs px-2 py-0.5 rounded-full font-medium"
+                    :style="{ background: severityBg(r.severity), color: severityColor(r.severity) }">
+                {{ severityLabel(r.severity) }}
+              </span>
+            </div>
+            <div class="flex flex-wrap gap-1 mt-2" v-if="r.triggers.length || r.accompanying.length">
+              <span v-for="t in r.triggers" :key="t" class="text-xs bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full">{{ t }}</span>
+              <span v-for="a in r.accompanying" :key="a" class="text-xs bg-blue-50 text-blue-500 px-2 py-0.5 rounded-full">{{ a }}</span>
+            </div>
+          </div>
+        </div>
+        <div v-if="!store.symptoms.length" class="card text-center py-12">
+          <div class="text-4xl mb-3">📝</div>
+          <p class="text-gray-400 text-sm">暂无记录</p>
+        </div>
+        <div style="height: 16px;"></div>
+      </div>
+    </div>
+  `,
+  setup() {
+    const store = Vue.inject('store');
+    const severityColor = (s) => SEVERITY_MAP[s]?.color || '#a0aec0';
+    const severityBg = (s) => SEVERITY_MAP[s]?.bg || '#f7fafc';
+    const severityLabel = (s) => SEVERITY_MAP[s]?.label || s;
+    const formatTime = (iso) => {
+      const d = new Date(iso);
+      return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    };
+
+    const groupedRecords = computed(() => {
+      const groups = {};
+      [...store.symptoms].reverse().forEach(r => {
+        const date = r.time.slice(0, 10);
+        if (!groups[date]) groups[date] = { date, records: [] };
+        groups[date].records.push(r);
+      });
+      return Object.values(groups).slice(0, 15).map(g => {
+        const d = new Date(g.date);
+        const today = new Date().toISOString().slice(0, 10);
+        const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+        let label = `${d.getMonth()+1}月${d.getDate()}日`;
+        if (g.date === today) label = '今天';
+        else if (g.date === yesterday) label = '昨天';
+        return { ...g, label };
+      });
+    });
+
+    return { store, groupedRecords, severityColor, severityBg, severityLabel, formatTime };
+  },
+};
+
+// ==================== 科普页面（增强）====================
+pageComponents['page-edu'] = {
+  template: `
+    <div>
+      <div class="header-gradient" style="padding-bottom: 28px;">
+        <div class="text-center pt-2">
+          <h1 class="text-xl font-bold">健康科普</h1>
+        </div>
+      </div>
+      <div class="px-4 -mt-4 relative z-10 space-y-3">
+        <!-- 分类标签 -->
+        <div class="flex gap-2 overflow-x-auto pb-2">
+          <button v-for="cat in categories" :key="cat"
+                  class="btn-press px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all"
+                  :class="activeCat === cat ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 border border-gray-200'"
+                  @click="activeCat = cat">
+            {{ cat }}
+          </button>
+        </div>
+        <!-- 文章列表 -->
+        <div v-for="article in filteredArticles" :key="article.id" class="card cursor-pointer" @click="$root.navigate('edu-detail', { id: article.id })">
+          <div class="flex items-start gap-3">
+            <div class="text-3xl">{{ article.icon }}</div>
+            <div class="flex-1 min-w-0">
+              <h3 class="font-bold text-sm text-gray-800 mb-1">{{ article.title }}</h3>
+              <p class="text-xs text-gray-400 line-clamp-2">{{ article.summary }}</p>
+              <span class="inline-block mt-2 text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-500">{{ article.category }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `,
+  setup() {
+    const activeCat = ref('全部');
+    const categories = ['全部', '潮热机制', '诱因管理', '中医调理', '西医药物', '生活技巧'];
+    const articles = [
+      { id: '1', title: '潮热的生理机制', summary: '了解潮热发生的科学原理，从下丘脑体温调节中枢说起...', icon: '🔬', category: '潮热机制' },
+      { id: '2', title: '为什么 ADT 会引发潮热', summary: '雄激素剥夺治疗如何影响体温调节系统...', icon: '🧬', category: '潮热机制' },
+      { id: '3', title: '饮食与潮热的关系', summary: '哪些食物可能诱发或加重潮热症状？', icon: '🍽️', category: '诱因管理' },
+      { id: '4', title: '环境温度管理指南', summary: '如何通过环境控制减少潮热发作频率...', icon: '🌡️', category: '诱因管理' },
+      { id: '5', title: '压力与潮热的恶性循环', summary: '压力如何加重潮热，以及如何打破这个循环...', icon: '😰', category: '诱因管理' },
+      { id: '6', title: '耳穴压豆的科学原理', summary: '中医耳穴疗法的现代医学解释...', icon: '👂', category: '中医调理' },
+      { id: '7', title: '穴位按摩指南', summary: '三阴交、太溪、涌泉等穴位的定位与按压技巧...', icon: '💆', category: '中医调理' },
+      { id: '8', title: '中医体质调理方案', summary: '根据不同体质类型选择适合的调理方法...', icon: '🌿', category: '中医调理' },
+      { id: '9', title: 'HRT 治疗简介', summary: '激素替代治疗的适应症、风险与获益...', icon: '💊', category: '西医药物' },
+      { id: '10', title: '新型 NK3R 拮抗剂', summary: '非激素类潮热治疗的最新进展...', icon: '🧪', category: '西医药物' },
+      { id: '11', title: '分层穿衣法', summary: '实用的穿衣策略帮助应对潮热突发...', icon: '👔', category: '生活技巧' },
+      { id: '12', title: '4-7-8 呼吸法', summary: '简单有效的呼吸练习，快速缓解潮热症状...', icon: '🧘', category: '生活技巧' },
+      { id: '13', title: '睡眠卫生指南', summary: '改善睡眠质量，减少夜间潮热影响...', icon: '😴', category: '生活技巧' },
+    ];
+    const filteredArticles = computed(() =>
+      activeCat.value === '全部' ? articles : articles.filter(a => a.category === activeCat.value)
+    );
+    return { activeCat, categories, filteredArticles };
+  },
+};
+
+// ==================== 个人中心页（增强）====================
+pageComponents['page-profile'] = {
+  template: `
+    <div>
+      <div class="header-gradient" style="padding-bottom: 32px;">
+        <div class="text-center pt-2">
+          <h1 class="text-xl font-bold">个人中心</h1>
+        </div>
+        <div class="text-center mt-3">
+          <div class="w-16 h-16 rounded-full bg-white/20 mx-auto flex items-center justify-center text-3xl mb-2">
+            {{ store.profile.gender === 'female' ? '👩' : '👨' }}
+          </div>
+          <p class="font-bold">{{ store.profile.name }}</p>
+          <p class="text-blue-100 text-xs">{{ store.profile.condition }}</p>
+        </div>
+      </div>
+      <div class="px-4 -mt-4 relative z-10 space-y-2">
+        <div class="card cursor-pointer btn-press" @click="$root.navigate('constitution')">
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">🫀</span>
+            <div class="flex-1"><div class="font-medium text-sm">中医体质评估</div><div class="text-xs text-gray-400">了解您的中医体质类型</div></div>
+            <span class="text-gray-300">›</span>
+          </div>
+        </div>
+        <div class="card cursor-pointer btn-press" @click="$root.navigate('scale')">
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">📋</span>
+            <div class="flex-1"><div class="font-medium text-sm">量表评估</div><div class="text-xs text-gray-400">标准化症状评估工具</div></div>
+            <span class="text-gray-300">›</span>
+          </div>
+        </div>
+        <div class="card cursor-pointer btn-press" @click="$root.navigate('vms-survey')">
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">📊</span>
+            <div class="flex-1"><div class="font-medium text-sm">VMS 研究问卷</div><div class="text-xs text-gray-400">血管舒缩症状研究调查</div></div>
+            <span class="text-gray-300">›</span>
+          </div>
+        </div>
+        <div class="card cursor-pointer btn-press" @click="$root.navigate('about')">
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">ℹ️</span>
+            <div class="flex-1"><div class="font-medium text-sm">关于沁凉助手</div><div class="text-xs text-gray-400">版本信息与产品介绍</div></div>
+            <span class="text-gray-300">›</span>
+          </div>
+        </div>
+        <div class="card mt-4">
+          <button class="btn-press w-full py-2 text-red-400 text-sm" @click="clearData">清除所有数据</button>
+        </div>
+      </div>
+    </div>
+  `,
+  setup() {
+    const store = Vue.inject('store');
+    const clearData = () => {
+      if (confirm('确定要清除所有数据吗？此操作不可撤销。')) {
+        store.symptoms = [];
+        store.constitution = null;
+        store.scaleResults = [];
+        localStorage.removeItem(STORAGE_KEYS.symptoms);
+        localStorage.removeItem(STORAGE_KEYS.constitution);
+        localStorage.removeItem(STORAGE_KEYS.scaleResults);
+      }
+    };
+    return { store, clearData };
+  },
+};
+
+// ==================== 创建 Vue 应用 ====================
+const app = createApp({
+  setup() {
+    // ---------- 全局状态 ----------
+    const loadFromStorage = (key, defaultValue) => {
+      try {
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : defaultValue;
+      } catch { return defaultValue; }
+    };
+
+    const store = reactive({
+      symptoms: loadFromStorage(STORAGE_KEYS.symptoms, []),
+      profile: loadFromStorage(STORAGE_KEYS.profile, {
+        name: '演示用户',
+        gender: 'male',
+        age: 65,
+        condition: '前列腺癌ADT治疗中',
+      }),
+      constitution: loadFromStorage(STORAGE_KEYS.constitution, null),
+      scaleResults: loadFromStorage(STORAGE_KEYS.scaleResults, []),
+    });
+
+    // 首次加载时如果没有数据，生成演示数据
+    if (!store.symptoms.length) {
+      store.symptoms = generateDemoData();
+    }
+
+    // 自动保存到 localStorage
+    watch(() => store.symptoms, (val) => {
+      localStorage.setItem(STORAGE_KEYS.symptoms, JSON.stringify(val));
+    }, { deep: true });
+    watch(() => store.profile, (val) => {
+      localStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(val));
+    }, { deep: true });
+    watch(() => store.constitution, (val) => {
+      localStorage.setItem(STORAGE_KEYS.constitution, JSON.stringify(val));
+    }, { deep: true });
+    watch(() => store.scaleResults, (val) => {
+      localStorage.setItem(STORAGE_KEYS.scaleResults, JSON.stringify(val));
+    }, { deep: true });
+
+    // 提供给所有子组件
+    Vue.provide('store', store);
+
+    // ---------- 路由系统 ----------
+    const tabs = TABS;
+    const currentTab = ref('home');
+    const currentPage = ref('home');
+    const pageParams = ref({});
+    const pageHistory = ref([]);
+
+    const isSubPage = computed(() => !TAB_PAGES.includes(currentPage.value));
+
+    // Tab 栏上显示的页面
+    const tabPages = {
+      home: 'page-home',
+      diary: 'page-diary',
+      edu: 'page-edu',
+      profile: 'page-profile',
+    };
+
+    const switchTab = (tabKey) => {
+      currentTab.value = tabKey;
+      pageHistory.value = [];
+      currentPage.value = tabKey;
+      pageParams.value = {};
+      window.location.hash = tabKey === 'home' ? '' : tabKey;
+    };
+
+    const navigate = (pageName, params = {}) => {
+      pageHistory.value.push({ page: currentPage.value, tab: currentTab.value, params: { ...pageParams.value } });
+      currentPage.value = pageName;
+      pageParams.value = params;
+      window.location.hash = pageName;
+    };
+
+    const goBack = () => {
+      if (pageHistory.value.length) {
+        const prev = pageHistory.value.pop();
+        currentPage.value = prev.page;
+        currentTab.value = prev.tab;
+        pageParams.value = prev.params || {};
+        window.location.hash = prev.page === 'home' ? '' : prev.page;
+      } else {
+        switchTab(currentTab.value);
+      }
+    };
+
+    // Hash 初始化
+    const initFromHash = () => {
+      const hash = window.location.hash.slice(1);
+      if (hash && ALL_PAGES.includes(hash)) {
+        if (TAB_PAGES.includes(hash)) {
+          currentTab.value = hash;
+          currentPage.value = hash;
+        } else {
+          currentPage.value = hash;
+        }
+      }
+    };
+    initFromHash();
+    window.addEventListener('hashchange', initFromHash);
+
+    // ---------- 快速记录 ----------
+    const showQuickRecord = ref(false);
+    const quickRecord = reactive({
+      severity: 'moderate',
+      time: new Date().toISOString().slice(0, 16),
+    });
+    const severityOptions = [
+      { value: 'mild', label: '轻度' },
+      { value: 'moderate', label: '中度' },
+      { value: 'severe', label: '重度' },
+      { value: 'extreme', label: '极重' },
+    ];
+    const saveQuickRecord = () => {
+      const record = {
+        id: `qr-${Date.now()}`,
+        time: new Date(quickRecord.time).toISOString(),
+        severity: quickRecord.severity,
+        duration: 5,
+        triggers: [],
+        accompanying: [],
+        intervention: '无',
+        note: '',
+      };
+      store.symptoms.push(record);
+      showQuickRecord.value = false;
+      // 重置
+      quickRecord.severity = 'moderate';
+      quickRecord.time = new Date().toISOString().slice(0, 16);
+    };
+
+    return {
+      store,
+      tabs,
+      currentTab,
+      currentPage,
+      pageParams,
+      isSubPage,
+      switchTab,
+      navigate,
+      goBack,
+      showQuickRecord,
+      quickRecord,
+      severityOptions,
+      saveQuickRecord,
+    };
+  },
+});
+
+// 注册所有页面组件
+Object.entries(pageComponents).forEach(([name, component]) => {
+  app.component(name, component);
+});
+
+app.mount('#app');
+</script>
+</body>
+</html>
