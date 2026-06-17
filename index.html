@@ -234,6 +234,16 @@
     border-radius: 50%; background: #4299e1; cursor: pointer;
     box-shadow: 0 2px 6px rgba(66,153,225,0.3);
   }
+
+  /* ========== 科普文章 Markdown 样式 ========== */
+  .edu-markdown h2 { font-size: 1.1rem; font-weight: 700; color: #2d3748; margin: 16px 0 8px; padding-bottom: 6px; border-bottom: 1px solid #e2e8f0; }
+  .edu-markdown h3 { font-size: 0.95rem; font-weight: 700; color: #4a5568; margin: 14px 0 6px; }
+  .edu-markdown p { margin: 8px 0; line-height: 1.7; }
+  .edu-markdown ul, .edu-markdown ol { margin: 8px 0; padding-left: 20px; }
+  .edu-markdown li { margin: 4px 0; line-height: 1.6; }
+  .edu-markdown strong { color: #2d3748; font-weight: 600; }
+  .edu-markdown em { color: #718096; }
+  .edu-markdown hr { border: none; border-top: 1px solid #e2e8f0; margin: 16px 0; }
 </style>
 </head>
 <body>
@@ -558,13 +568,17 @@ pageComponents['page-home'] = {
           <div ref="chartRef" style="width:100%;height:200px;"></div>
         </div>
 
-        <!-- AI 建议卡片 (增强) -->
+        <!-- AI 建议卡片 (增强：含预测引擎) -->
         <div class="card" style="background: linear-gradient(135deg, #ebf8ff, #e9d8fd); border: 1px solid #e9d8fd;">
           <div class="flex items-start gap-3 mb-3">
             <span class="text-2xl">🤖</span>
             <div class="flex-1">
               <h3 class="font-bold text-purple-700 text-sm mb-1">AI 助手建议</h3>
             </div>
+            <span v-if="accuracyBadge !== null" class="text-xs px-2 py-1 rounded-full font-bold"
+                  :style="{ background: accuracyBadge >= 70 ? '#f0fff4' : '#fffaf0', color: accuracyBadge >= 70 ? '#276749' : '#c05621' }">
+              预测准确率 {{ accuracyBadge }}%
+            </span>
           </div>
           <!-- 高发时段 -->
           <div class="flex gap-2 mb-2">
@@ -572,6 +586,25 @@ pageComponents['page-home'] = {
               <div class="text-lg">⏰</div>
               <div class="text-xs font-bold text-blue-700">{{ tw.label }}</div>
               <div class="text-xs text-gray-500">{{ tw.count }}次发作</div>
+            </div>
+          </div>
+          <!-- 24小时风险时间线 -->
+          <div class="bg-white/70 rounded-lg p-2 mb-2">
+            <div class="text-xs font-bold text-purple-700 mb-1.5">🔮 未来24小时风险预测</div>
+            <div class="flex items-end gap-0.5" style="height: 36px;">
+              <div v-for="h in prediction24h" :key="h.hour"
+                   class="flex-1 rounded-t cursor-pointer relative group"
+                   :style="{ height: Math.max(8, h.probability * 3) + 'px', background: h.risk === 'high' ? '#fc8181' : h.risk === 'medium' ? '#f6ad55' : '#68d391' }"
+                   :title="h.hour + ':00 - ' + h.risk + ' (' + h.probability + '%)'">
+              </div>
+            </div>
+            <div class="flex justify-between text-xs text-gray-400 mt-1">
+              <span>0:00</span><span>6:00</span><span>12:00</span><span>18:00</span><span>23:00</span>
+            </div>
+            <div class="flex gap-3 mt-1 justify-center">
+              <span class="flex items-center gap-1 text-xs text-gray-500"><span class="inline-block w-2 h-2 rounded-full" style="background:#fc8181;"></span>高风险</span>
+              <span class="flex items-center gap-1 text-xs text-gray-500"><span class="inline-block w-2 h-2 rounded-full" style="background:#f6ad55;"></span>中风险</span>
+              <span class="flex items-center gap-1 text-xs text-gray-500"><span class="inline-block w-2 h-2 rounded-full" style="background:#68d391;"></span>低风险</span>
             </div>
           </div>
           <!-- 诱因 & 干预 -->
@@ -586,6 +619,11 @@ pageComponents['page-home'] = {
               <div class="text-xs font-bold text-green-700">{{ bestIntervention.name }}</div>
               <div class="text-xs text-gray-500">最有效干预</div>
             </div>
+          </div>
+          <!-- 个性化建议 -->
+          <div v-if="personalizedTips.length" class="bg-white/50 rounded-lg p-2 mb-1">
+            <div class="text-xs text-purple-600 font-medium mb-1">🧠 个性化建议</div>
+            <div v-for="(tip, i) in personalizedTips" :key="i" class="text-xs text-gray-600 leading-relaxed mb-0.5">• {{ tip }}</div>
           </div>
           <!-- 每日趣闻 -->
           <div class="bg-white/50 rounded-lg p-2 mt-1">
@@ -761,6 +799,41 @@ pageComponents['page-home'] = {
       return DAILY_FUN_FACTS[dayOfYear % DAILY_FUN_FACTS.length];
     });
 
+    // ---- AI 预测引擎 ----
+    const timePatterns = computed(() => analyzeTimePatterns(store.symptoms));
+    const prediction24h = computed(() => predictNext24h(timePatterns.value));
+    const accuracyBadge = computed(() => backtestAccuracy(store.symptoms));
+
+    // 个性化建议：基于诱因分析和干预效果
+    const personalizedTips = computed(() => {
+      const tips = [];
+      const triggerImpact = analyzeTriggerImpact(store.symptoms);
+      // 找出严重度增加最多的诱因
+      const worstTrigger = Object.entries(triggerImpact)
+        .filter(([, v]) => v.count >= 3)
+        .sort((a, b) => b[1].baselineDiff - a[1].baselineDiff)[0];
+      if (worstTrigger && worstTrigger[1].baselineDiff > 0.3) {
+        tips.push(`「${worstTrigger[0]}」会使发作严重度明显升高（+${worstTrigger[1].baselineDiff.toFixed(1)}），建议尽量避免`);
+      }
+      // 干预建议
+      if (bestIntervention.value) {
+        const bi = bestIntervention.value;
+        if (bi.avg < 2) {
+          tips.push(`「${bi.name}」效果良好（平均严重度${bi.avg.toFixed(1)}），建议在高风险时段提前使用`);
+        }
+      }
+      // 高发时段提醒
+      if (topTimeWindows.value.length) {
+        const hw = topTimeWindows.value[0];
+        tips.push(`高发时段为 ${hw.label}，该时段共${hw.count}次发作，建议提前做好准备`);
+      }
+      // 如果数据不足
+      if (!tips.length && store.symptoms.length < 10) {
+        tips.push('记录数据还不够多，持续记录7天以上将获得更精准的AI分析');
+      }
+      return tips;
+    });
+
     // ---- ECharts 初始化 ----
     const initChart = () => {
       if (!chartRef.value || typeof echarts === 'undefined') return;
@@ -855,7 +928,7 @@ pageComponents['page-home'] = {
       todayDate, todayCount, trendDiff, avgSeverityLabel,
       severityCounts, consecutiveDays, weeklyData,
       chartRef, topTimeWindows, topTrigger, bestIntervention,
-      dailyFunFact,
+      dailyFunFact, prediction24h, accuracyBadge, personalizedTips,
     };
   },
 };
@@ -942,18 +1015,486 @@ pageComponents['page-diary'] = {
   },
 };
 
-// ==================== 科普页面（增强）====================
+// ==================== 科普页面（完整实现）====================
+// 文章数据定义
+const EDU_ARTICLES = [
+  // 潮热机制 (2)
+  {
+    id: '1', title: '潮热的生理机制', icon: '🔬', category: '潮热机制',
+    summary: '了解潮热发生的科学原理，从下丘脑体温调节中枢说起...',
+    date: '2024-01-15',
+    content: `## 潮热的生理机制
+
+潮热（Hot Flash）是血管舒缩症状（VMS）中最典型的表现，其核心机制涉及下丘脑体温调节中枢的功能异常。
+
+### 下丘脑的"恒温器"重置
+
+人体的体温调节中枢位于下丘脑前区的视前区（POA）。正常情况下，该区域将核心体温维持在一个狭窄的"调定点"范围内（约36.8-37.2°C）。当核心体温偏离调定点时，中枢会启动相应的散热或产热机制来恢复平衡。
+
+在雌激素（或雄激素经芳香化转化后）水平急剧下降的情况下，下丘脑的体温调定点会发生异常重置——向下偏移约0.4°C。这意味着，即使核心体温完全正常，下丘脑也会"误判"为体温过高，从而触发强烈的散热反应。
+
+### 神经递质失衡
+
+这一过程的关键神经递质包括：
+
+- **去甲肾上腺素（NE）**：在潮热发作前，NE水平显著升高，直接激活散热通路
+- **5-羟色胺（5-HT/血清素）**：参与体温调节，其代谢异常与VMS密切相关
+- **γ-氨基丁酸（GABA）**：抑制性神经递质，其功能下降会导致体温调节不稳定
+- **Kisspeptin神经元**：近年研究发现KNDy神经元（共同表达Kisspeptin、Neurokinin B和Dynorphin）在潮热发生中扮演关键角色
+
+### 散热反应的级联效应
+
+当下丘脑发出"过热"信号后，会依次引发：
+
+1. 外周血管扩张（尤其是面部和上半身皮肤血管）
+2. 大量出汗（汗腺分泌增加）
+3. 心率加快
+4. 皮肤温度急剧升高
+
+这一系列反应通常持续2-5分钟，发作频率从每日数次到数十次不等，严重影响患者的生活质量。`
+  },
+  {
+    id: '2', title: '为什么ADT会引发潮热', icon: '🧬', category: '潮热机制',
+    summary: '雄激素剥夺治疗如何影响体温调节系统...',
+    date: '2024-01-20',
+    content: `## 为什么ADT会引发潮热
+
+雄激素剥夺治疗（Androgen Deprivation Therapy, ADT）是晚期前列腺癌的重要治疗手段，但约80%的患者会出现潮热等血管舒缩症状。
+
+### 激素断崖式下降
+
+ADT通过GnRH激动剂/拮抗剂或手术去势，将睾酮水平降至"去势水平"（<50 ng/dL）。这种人为造成的低雄激素状态，与女性绝经期雌激素下降在本质上相似——都是性激素水平的急剧降低。
+
+关键在于，男性体内的睾酮有一部分会在脂肪组织和脑组织中经芳香化酶（aromatase）转化为雌二醇。当ADT将睾酮降至极低水平后，芳香化底物不足，导致中枢雌激素水平也显著下降。
+
+### 体温调节中枢受损
+
+低雄激素/雌激素状态对下丘脑的影响包括：
+
+1. **KNDy神经元过度激活**：Kisspeptin/Neurokinin B通路在性激素缺乏时异常活跃
+2. **GABAergic抑制减弱**：抑制性信号减少导致散热通路过度兴奋
+3. **去甲肾上腺素能活性增强**：NE水平升高直接触发潮热
+
+### ADT相关潮热的特点
+
+与女性绝经期潮热相比，ADT相关潮热有以下特征：
+
+- 发作更频繁、更剧烈
+- 严重影响睡眠质量
+- 常伴有情绪波动和认知功能下降
+- 患者往往因"面子问题"延迟就医
+- 治疗选择相对有限（HRT在前列腺癌患者中存在争议）`
+  },
+
+  // 诱因管理 (3)
+  {
+    id: '3', title: '饮食与潮热', icon: '🍽️', category: '诱因管理',
+    summary: '哪些食物可能诱发或加重潮热症状？',
+    date: '2024-02-01',
+    content: `## 饮食与潮热
+
+饮食是影响潮热频率和严重度的重要可控因素。了解哪些食物可能诱发潮热，哪些食物有助于缓解症状，对日常管理至关重要。
+
+### 可能诱发潮热的食物
+
+**辛辣食物**：辣椒素会激活TRPV1受体，导致血管扩张和体温升高，直接触发或加重潮热发作。建议减少食用辣椒、花椒等刺激性调料。
+
+**咖啡因**：咖啡、浓茶中的咖啡因会刺激中枢神经系统，增加去甲肾上腺素释放，从而提高潮热发生频率。建议每日咖啡因摄入量控制在200mg以内（约2杯咖啡）。
+
+**酒精**：即使少量饮酒也会扩张血管、升高体温，是已知的强效潮热诱发因素。建议尽量避免或严格限制酒精摄入。
+
+**热汤/热饮**：进食温度过高的食物会直接升高核心体温，触发散热反应。建议食物温度控制在温热（40-50°C）为宜。
+
+### 有助缓解症状的食物
+
+**大豆制品**：含丰富大豆异黄酮（植物雌激素），可部分替代体内雌激素的作用，可能减少潮热频率。
+
+**亚麻籽**：富含木脂素，具有弱雌激素活性，部分研究显示可改善VMS症状。
+
+**深海鱼类**：富含Omega-3脂肪酸，有助于抗炎和调节神经递质平衡。
+
+**充足饮水**：保持每日1500-2000ml的饮水量，有助于体温调节。`
+  },
+  {
+    id: '4', title: '环境温度管理', icon: '🌡️', category: '诱因管理',
+    summary: '如何通过环境控制减少潮热发作频率...',
+    date: '2024-02-10',
+    content: `## 环境温度管理
+
+环境温度是诱发潮热最常见的外部因素之一。通过科学管理居住和工作环境，可以显著减少潮热发作。
+
+### 室内温度控制
+
+- **白天**：建议将室温控制在22-24°C，避免过热
+- **夜间**：睡眠环境温度以18-22°C为宜，低于日常温度有助于减少盗汗
+- **空调使用**：避免冷风直吹身体，尤其是头颈部
+
+### 应急降温工具
+
+随身携带以下物品可快速应对突发潮热：
+
+- **便携风扇**：USB充电迷你风扇，可即时降温
+- **冷敷贴/冰袋**：置于颈后或手腕处，快速降低体表温度
+- **薄荷喷雾**：含薄荷精油的面部喷雾，30秒内产生清凉感
+- **冷毛巾**：随身携带小毛巾，浸湿后敷于面部
+
+### 穿衣策略
+
+- **分层穿衣法**：多层薄衣优于单层厚衣，方便随时增减
+- **选择透气面料**：纯棉、亚麻等天然面料吸湿透气性好
+- **深色衣物**：可减少汗渍显眼程度
+- **避免化纤面料**：不透气、容易积聚热量`
+  },
+  {
+    id: '5', title: '压力与潮热的恶性循环', icon: '😰', category: '诱因管理',
+    summary: '压力如何加重潮热，以及如何打破这个循环...',
+    date: '2024-02-20',
+    content: `## 压力与潮热的恶性循环
+
+压力和潮热之间存在双向恶性循环——压力会加重潮热，而频繁的潮热又会增加心理压力。理解这一循环机制，是打破恶性循环的关键。
+
+### 压力如何加重潮热
+
+1. **HPA轴过度激活**：长期压力导致下丘脑-垂体-肾上腺（HPA）轴过度激活，皮质醇水平升高
+2. **NE释放增加**：压力激活交感神经系统，去甲肾上腺素（NE）释放增加，直接触发潮热
+3. **GABA功能抑制**：焦虑状态下GABA活性下降，体温调节中枢稳定性降低
+
+### 如何打破循环
+
+**认知行为策略**：
+- 记录潮热日记，识别并管理可控制的诱因
+- 学习正念减压（MBSR）技术
+- 建立规律的作息时间表
+
+**生理调节策略**：
+- 腹式呼吸练习（每日2次，每次10分钟）
+- 渐进性肌肉放松训练
+- 适度有氧运动（每周3-5次，每次30分钟）
+
+**社会支持**：
+- 加入患者互助群组
+- 与家人坦诚沟通病情
+- 必要时寻求心理咨询`
+  },
+
+  // 中医调理 (3)
+  {
+    id: '6', title: '耳穴压豆原理', icon: '👂', category: '中医调理',
+    summary: '中医耳穴疗法的现代医学解释...',
+    date: '2024-03-01',
+    content: `## 耳穴压豆的科学原理
+
+耳穴压豆是中医外治法的重要组成部分，通过在耳廓特定穴位贴压王不留行籽或磁珠，刺激耳部神经末梢，达到调节全身功能的目的。
+
+### 中医理论基础
+
+中医认为"耳者，宗脉之所聚也"——耳廓是全身经络汇聚之处。耳廓形似倒置的胎儿，各部位对应全身各脏腑器官。通过刺激耳部穴位，可以疏通经络、调和气血、平衡阴阳。
+
+### 现代医学解释
+
+**神经解剖学基础**：
+- 耳廓有丰富的神经支配，包括耳大神经、枕小神经、迷走神经耳支等
+- 迷走神经耳支（ABVN）是关键——它是唯一到达体表的副交感神经分支
+- 刺激迷走神经耳支可以调节自主神经平衡，抑制交感神经过度兴奋
+
+**神经内分泌调节**：
+- 耳穴刺激可以调节下丘脑-垂体-肾上腺轴功能
+- 影响5-HT、NE等与体温调节相关的神经递质水平
+- 促进内源性阿片肽释放，缓解疼痛和焦虑
+
+**临床证据**：
+- 多项RCT研究证实耳穴压豆可减少潮热频率30-50%
+- 安全性好，几乎无不良反应
+- 可作为ADT相关潮热的辅助治疗手段`
+  },
+  {
+    id: '7', title: '穴位按摩指南', icon: '💆', category: '中医调理',
+    summary: '三阴交、太溪、涌泉等穴位的定位与按压技巧...',
+    date: '2024-03-10',
+    content: `## 穴位按摩指南
+
+穴位按摩是一种简便易行的自我保健方法，通过按压特定穴位，可以辅助缓解潮热症状。
+
+### 常用穴位
+
+**三阴交**：
+- 位置：内踝尖上3寸（约四横指），胫骨后缘
+- 功效：滋阴补肾、调理肝脾
+- 按法：拇指按揉，每次2-3分钟
+
+**太溪**：
+- 位置：内踝尖与跟腱之间凹陷处
+- 功效：滋阴降火、补肾益精
+- 按法：拇指点按，每次1-2分钟
+
+**涌泉**：
+- 位置：足底前1/3与后2/3交界处
+- 功效：引火归元、滋阴潜阳
+- 按法：睡前搓热足底，各100次
+
+**合谷**：
+- 位置：手背第1、2掌骨间，第2掌骨桡侧中点
+- 功效：疏风解表、调和气血
+- 按法：拇指按压，每次2分钟
+
+### 按摩注意事项
+
+1. 力度适中，以感到酸胀为宜
+2. 每个穴位按摩2-3分钟
+3. 每日2-3次，可在潮热发作前或发作时进行
+4. 皮肤破损处禁止按压
+5. 建持长期坚持，效果需要累积`
+  },
+  {
+    id: '8', title: '中医体质调理', icon: '🌿', category: '中医调理',
+    summary: '根据不同体质类型选择适合的调理方法...',
+    date: '2024-03-20',
+    content: `## 中医体质调理方案
+
+中医体质学将人体体质分为九种类型。ADT相关潮热患者常见的体质类型及其调理方案如下：
+
+### 阴虚质（最常见）
+
+**特征**：潮热盗汗、手足心热、口干咽燥、舌红少苔
+
+**调理要点**：
+- 饮食：多食百合、银耳、枸杞、山药
+- 茶饮：枸杞菊花茶、麦冬泡水
+- 穴位：太溪、三阴交、照海
+- 中药：六味地黄丸、知柏地黄丸
+
+### 气虚质
+
+**特征**：气短乏力、自汗、面色苍白、舌淡苔白
+
+**调理要点**：
+- 饮食：黄芪炖鸡、山药粥
+- 茶饮：黄芪红枣茶
+- 穴位：足三里、气海、关元
+- 中药：补中益气汤
+
+### 湿热质
+
+**特征**：面部油腻、口苦口黏、大便黏滞、舌红苔黄腻
+
+**调理要点**：
+- 饮食：薏米红豆汤、冬瓜汤
+- 茶饮：菊花薏米茶
+- 穴位：阴陵泉、丰隆、曲池
+- 中药：龙胆泻肝汤`
+  },
+
+  // 西医药物 (2)
+  {
+    id: '9', title: 'HRT治疗简介', icon: '💊', category: '西医药物',
+    summary: '激素替代治疗的适应症、风险与获益...',
+    date: '2024-04-01',
+    content: `## HRT治疗简介
+
+激素替代治疗（Hormone Replacement Therapy, HRT）是缓解潮热最有效的药物治疗手段，但在ADT背景下的前列腺癌患者中需谨慎使用。
+
+### HRT的作用机制
+
+HRT通过补充体内缺乏的性激素（雌激素或孕激素），恢复下丘脑体温调节中枢的正常功能，从根本上解决潮热问题。
+
+### 适应症
+
+- 中重度VMS症状严重影响生活质量
+- 非药物治疗效果不佳
+- 无HRT禁忌证
+- 患者充分知情并自愿选择
+
+### 常用方案
+
+**雌激素**：
+- 低剂量雌二醇贴剂（每日25-50μg）
+- 口服雌二醇（每日0.5-1mg）
+- 注意：前列腺癌患者使用雌激素需评估血栓风险
+
+**孕激素**：
+- 醋酸甲地孕酮（MA）
+- 可单独使用或与雌激素联合
+
+### 风险与获益
+
+**获益**：
+- 潮热频率减少80-90%
+- 睡眠质量显著改善
+- 生活质量评分提高
+
+**风险**：
+- 血栓栓塞风险增加
+- 心血管事件风险
+- 乳腺癌风险（女性患者）
+- 需定期监测肝功能和凝血功能`
+  },
+  {
+    id: '10', title: '新型NK3R拮抗剂', icon: '🧪', category: '西医药物',
+    summary: '非激素类潮热治疗的最新进展...',
+    date: '2024-04-10',
+    content: `## 新型NK3R拮抗剂
+
+NK3R（Neurokinin 3受体）拮抗剂是近年来潮热治疗领域最重要的突破，代表药物Fezolinetant已获FDA批准。
+
+### 作用机制
+
+KNDy神经元（共表达Kisspeptin、Neurokinin B和Dynorphin）是体温调节的关键调控者。在性激素缺乏状态下，KNDy神经元过度激活，释放大量Neurokinin B（NKB），通过NK3受体驱动潮热发生。
+
+NK3R拮抗剂通过阻断NKB与NK3受体的结合，抑制KNDy神经元的过度兴奋，从而减少潮热发作。
+
+### 代表药物
+
+**Fezolinetant（商品名Veozah）**：
+- 2023年获FDA批准用于治疗中重度VMS
+- 口服，每日一次，45mg
+- 临床试验显示潮热频率降低约60%
+- 不含激素成分
+
+**Elinzanetant（研发中）**：
+- 双靶点NK1R/NK3R拮抗剂
+- 三期临床试验结果积极
+
+### 优势
+
+- 非激素类药物，适合激素禁忌患者
+- 起效快（1-2周即可观察到效果）
+- 安全性良好，主要不良反应为头痛和疲劳
+- 不增加血栓或心血管事件风险
+
+### 局限性
+
+- 长期安全性数据仍在积累中
+- 价格较高
+- 需定期监测肝功能`
+  },
+
+  // 生活技巧 (3)
+  {
+    id: '11', title: '分层穿衣法', icon: '👔', category: '生活技巧',
+    summary: '实用的穿衣策略帮助应对潮热突发...',
+    date: '2024-05-01',
+    content: `## 分层穿衣法
+
+分层穿衣法是应对潮热突发最实用的穿衣策略，核心理念是"多层薄衣优于单层厚衣"。
+
+### 基本原则
+
+**三层法则**：
+1. **内层（贴身层）**：选择吸湿排汗面料，如美利奴羊毛或功能性合成纤维
+2. **中层（保暖层）**：抓绒或薄羽绒，可根据需要快速脱除
+3. **外层（防护层）**：防风防水外套，应对室外环境变化
+
+### 面料选择
+
+**推荐**：
+- 纯棉：透气性好，但吸湿后不易干
+- 美利奴羊毛：天然温度调节，吸湿排汗
+- 亚麻：夏季首选，透气凉爽
+
+**避免**：
+- 涤纶等合成面料（不透气）
+- 尼龙（容易积聚静电和热量）
+
+### 实用技巧
+
+- 随身携带一件薄外套，可在潮热发作时快速脱除
+- 选择V领或开襟上衣，方便散热
+- 办公室常备一条干毛巾
+- 选择深色衣物减少汗渍显眼
+- 使用止汗剂减少出汗尴尬`
+  },
+  {
+    id: '12', title: '4-7-8呼吸法', icon: '🧘', category: '生活技巧',
+    summary: '简单有效的呼吸练习，快速缓解潮热症状...',
+    date: '2024-05-10',
+    content: `## 4-7-8呼吸法
+
+4-7-8呼吸法是Andrew Weil博士推荐的一种简单而有效的呼吸练习，可以帮助快速缓解潮热症状和伴随的焦虑。
+
+### 练习方法
+
+1. **准备**：舌尖抵住上颚前部（门牙后方的牙龈处）
+2. **呼气**：用嘴完全呼气，发出"呼"的声音
+3. **吸气**：闭嘴，用鼻子安静地吸气4秒
+4. **屏气**：屏住呼吸7秒
+5. **呼气**：用嘴呼气8秒，发出"呼"的声音
+6. 重复上述循环4次
+
+### 作用机制
+
+- **激活副交感神经**：延长的呼气过程激活迷走神经，促进"休息与消化"反应
+- **降低NE水平**：腹式呼吸可减少交感神经兴奋性
+- **增加GABA释放**：深呼吸有助于提高抑制性神经递质水平
+- **降低核心体温**：缓慢的呼吸有助于散热
+
+### 使用场景
+
+- 潮热发作时：立即进行4-8次循环
+- 睡前：进行5-10分钟帮助入睡
+- 焦虑发作时：连续练习直到症状缓解
+- 日常保健：每日2-3次，每次5分钟
+
+### 注意事项
+
+- 初期可能出现轻度头晕，属正常反应
+- 有呼吸系统疾病者请先咨询医生
+- 坚持练习2-4周可看到明显效果`
+  },
+  {
+    id: '13', title: '睡眠卫生', icon: '😴', category: '生活技巧',
+    summary: '改善睡眠质量，减少夜间潮热影响...',
+    date: '2024-05-20',
+    content: `## 睡眠卫生指南
+
+夜间潮热（盗汗）是影响睡眠质量的主要因素。良好的睡眠卫生习惯可以显著改善睡眠质量。
+
+### 睡眠环境优化
+
+**温度**：
+- 卧室温度保持18-20°C
+- 使用可调节温控的电热毯（睡前预热，入睡后关闭）
+- 使用凉感床垫和枕头
+
+**寝具选择**：
+- 选择吸湿排汗的床单面料（竹纤维、天丝等）
+- 使用分层被褥，便于随时调节
+- 准备多套干净睡衣，夜间出汗后可更换
+
+### 睡前习惯
+
+**应该做的**：
+- 睡前1-2小时洗温水澡（不是热水澡）
+- 进行放松练习（4-7-8呼吸法、渐进性肌肉放松）
+- 保持固定的就寝和起床时间
+- 睡前避免使用电子设备
+
+**应该避免的**：
+- 睡前3小时内避免大量饮水
+- 睡前6小时内避免咖啡因
+- 睡前避免酒精
+- 睡前避免剧烈运动
+
+### 夜间应对策略
+
+- 床边准备凉毛巾和替换睡衣
+- 使用吸汗床垫保护套
+- 如频繁盗汗，可准备备用床单
+- 夜间醒来后避免查看手机时间`
+  },
+];
+
 pageComponents['page-edu'] = {
   template: `
     <div>
       <div class="header-gradient" style="padding-bottom: 28px;">
         <div class="text-center pt-2">
           <h1 class="text-xl font-bold">健康科普</h1>
+          <p class="text-blue-100 text-xs mt-1">{{ filteredArticles.length }} 篇文章</p>
         </div>
       </div>
       <div class="px-4 -mt-4 relative z-10 space-y-3">
         <!-- 分类标签 -->
-        <div class="flex gap-2 overflow-x-auto pb-2">
+        <div class="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4">
           <button v-for="cat in categories" :key="cat"
                   class="btn-press px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all"
                   :class="activeCat === cat ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 border border-gray-200'"
@@ -962,13 +1503,18 @@ pageComponents['page-edu'] = {
           </button>
         </div>
         <!-- 文章列表 -->
-        <div v-for="article in filteredArticles" :key="article.id" class="card cursor-pointer" @click="$root.navigate('edu-detail', { id: article.id })">
+        <div v-for="article in filteredArticles" :key="article.id" class="card cursor-pointer btn-press" @click="$root.navigate('edu-detail', { id: article.id })">
           <div class="flex items-start gap-3">
-            <div class="text-3xl">{{ article.icon }}</div>
+            <div class="text-3xl flex-shrink-0">{{ article.icon }}</div>
             <div class="flex-1 min-w-0">
-              <h3 class="font-bold text-sm text-gray-800 mb-1">{{ article.title }}</h3>
-              <p class="text-xs text-gray-400 line-clamp-2">{{ article.summary }}</p>
-              <span class="inline-block mt-2 text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-500">{{ article.category }}</span>
+              <div class="flex items-center gap-2 mb-1">
+                <h3 class="font-bold text-sm text-gray-800">{{ article.title }}</h3>
+              </div>
+              <p class="text-xs text-gray-400 line-clamp-2 mb-2">{{ article.summary }}</p>
+              <div class="flex items-center gap-2">
+                <span class="inline-block text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-500">{{ article.category }}</span>
+                <span class="text-xs text-gray-300">{{ article.date }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -978,23 +1524,8 @@ pageComponents['page-edu'] = {
   setup() {
     const activeCat = ref('全部');
     const categories = ['全部', '潮热机制', '诱因管理', '中医调理', '西医药物', '生活技巧'];
-    const articles = [
-      { id: '1', title: '潮热的生理机制', summary: '了解潮热发生的科学原理，从下丘脑体温调节中枢说起...', icon: '🔬', category: '潮热机制' },
-      { id: '2', title: '为什么 ADT 会引发潮热', summary: '雄激素剥夺治疗如何影响体温调节系统...', icon: '🧬', category: '潮热机制' },
-      { id: '3', title: '饮食与潮热的关系', summary: '哪些食物可能诱发或加重潮热症状？', icon: '🍽️', category: '诱因管理' },
-      { id: '4', title: '环境温度管理指南', summary: '如何通过环境控制减少潮热发作频率...', icon: '🌡️', category: '诱因管理' },
-      { id: '5', title: '压力与潮热的恶性循环', summary: '压力如何加重潮热，以及如何打破这个循环...', icon: '😰', category: '诱因管理' },
-      { id: '6', title: '耳穴压豆的科学原理', summary: '中医耳穴疗法的现代医学解释...', icon: '👂', category: '中医调理' },
-      { id: '7', title: '穴位按摩指南', summary: '三阴交、太溪、涌泉等穴位的定位与按压技巧...', icon: '💆', category: '中医调理' },
-      { id: '8', title: '中医体质调理方案', summary: '根据不同体质类型选择适合的调理方法...', icon: '🌿', category: '中医调理' },
-      { id: '9', title: 'HRT 治疗简介', summary: '激素替代治疗的适应症、风险与获益...', icon: '💊', category: '西医药物' },
-      { id: '10', title: '新型 NK3R 拮抗剂', summary: '非激素类潮热治疗的最新进展...', icon: '🧪', category: '西医药物' },
-      { id: '11', title: '分层穿衣法', summary: '实用的穿衣策略帮助应对潮热突发...', icon: '👔', category: '生活技巧' },
-      { id: '12', title: '4-7-8 呼吸法', summary: '简单有效的呼吸练习，快速缓解潮热症状...', icon: '🧘', category: '生活技巧' },
-      { id: '13', title: '睡眠卫生指南', summary: '改善睡眠质量，减少夜间潮热影响...', icon: '😴', category: '生活技巧' },
-    ];
     const filteredArticles = computed(() =>
-      activeCat.value === '全部' ? articles : articles.filter(a => a.category === activeCat.value)
+      activeCat.value === '全部' ? EDU_ARTICLES : EDU_ARTICLES.filter(a => a.category === activeCat.value)
     );
     return { activeCat, categories, filteredArticles };
   },
@@ -1582,6 +2113,358 @@ pageComponents['page-stats'] = {
     return { activeTimeTab, timeTabs, setTimeTab, trendChartRef, pieChartRef, triggerChartRef, heatmapRef, interventionChartRef };
   },
 };
+// ==================== 科普详情页（Task 14）====================
+pageComponents['page-edu-detail'] = {
+  template: `
+    <div>
+      <div class="header-gradient" style="padding-bottom: 28px;">
+        <div class="back-btn" @click="$root.goBack()">←</div>
+        <div class="text-center pl-10">
+          <h1 class="text-xl font-bold">文章详情</h1>
+        </div>
+      </div>
+      <div class="px-4 -mt-4 relative z-10 pb-24">
+        <div v-if="article" class="card">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-2xl">{{ article.icon }}</span>
+            <span class="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-500 font-medium">{{ article.category }}</span>
+            <span class="text-xs text-gray-300 ml-auto">{{ article.date }}</span>
+          </div>
+          <h2 class="font-bold text-lg text-gray-800 mb-3">{{ article.title }}</h2>
+          <div class="edu-markdown text-sm text-gray-700 leading-relaxed" v-html="renderedContent"></div>
+        </div>
+        <div v-else class="card text-center py-16">
+          <div class="text-4xl mb-3">📄</div>
+          <p class="text-gray-500 text-sm">文章未找到</p>
+        </div>
+      </div>
+    </div>
+  `,
+  setup(props, { root }) {
+    const pageParams = root.pageParams || {};
+    const article = computed(() => EDU_ARTICLES.find(a => a.id === pageParams.id) || null);
+    const renderedContent = computed(() => {
+      if (!article.value || !article.value.content) return '';
+      return marked.parse(article.value.content);
+    });
+    return { article, renderedContent };
+  },
+};
+
+// ==================== 耳穴压豆列表页（Task 15）====================
+pageComponents['page-auricular'] = {
+  template: `
+    <div>
+      <div class="header-gradient" style="padding-bottom: 28px;">
+        <div class="back-btn" @click="$root.goBack()">←</div>
+        <div class="text-center pl-10">
+          <h1 class="text-xl font-bold">耳穴压豆</h1>
+          <p class="text-blue-100 text-xs mt-1">{{ points.length }} 个穴位</p>
+        </div>
+      </div>
+      <div class="px-4 -mt-4 relative z-10 pb-24">
+        <div class="grid grid-cols-2 gap-3">
+          <div v-for="point in points" :key="point.name"
+               class="card cursor-pointer btn-press text-center py-5"
+               @click="$root.navigate('auricular-detail', { name: point.name })">
+            <div class="w-14 h-14 rounded-full bg-blue-50 mx-auto flex items-center justify-center mb-2">
+              <span class="text-2xl">👂</span>
+            </div>
+            <div class="font-bold text-sm text-gray-800 mb-1">{{ point.name }}</div>
+            <div class="text-xs text-gray-400 line-clamp-2 px-1">{{ point.position }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `,
+  setup() {
+    return { points: AURICULAR_POINTS };
+  },
+};
+
+// ==================== 耳穴压豆详情页 + 30秒计时器（Task 15）====================
+pageComponents['page-auricular-detail'] = {
+  template: `
+    <div>
+      <div class="header-gradient" style="padding-bottom: 28px;">
+        <div class="back-btn" @click="$root.goBack()">←</div>
+        <div class="text-center pl-10">
+          <h1 class="text-xl font-bold">穴位详情</h1>
+        </div>
+      </div>
+      <div class="px-4 -mt-4 relative z-10 pb-24 space-y-3">
+        <div v-if="point" class="card">
+          <div class="text-center mb-4">
+            <div class="w-16 h-16 rounded-full bg-blue-50 mx-auto flex items-center justify-center mb-2">
+              <span class="text-3xl">👂</span>
+            </div>
+            <h2 class="font-bold text-xl text-gray-800">{{ point.name }}</h2>
+            <span class="text-xs px-3 py-1 rounded-full bg-blue-50 text-blue-500 font-medium mt-1 inline-block">{{ point.indication }}</span>
+          </div>
+
+          <!-- 定位方法 -->
+          <div class="mb-3">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-base">📍</span>
+              <span class="font-bold text-sm text-gray-700">定位方法</span>
+            </div>
+            <p class="text-sm text-gray-600 pl-6">{{ point.position }}</p>
+          </div>
+
+          <!-- 按压手法 -->
+          <div class="mb-3">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-base">🖐️</span>
+              <span class="font-bold text-sm text-gray-700">按压手法</span>
+            </div>
+            <p class="text-sm text-gray-600 pl-6">{{ point.technique }}</p>
+          </div>
+
+          <!-- 详细说明 -->
+          <div class="mb-3">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-base">📖</span>
+              <span class="font-bold text-sm text-gray-700">详细说明</span>
+            </div>
+            <p class="text-sm text-gray-600 pl-6 leading-relaxed">{{ point.description }}</p>
+          </div>
+        </div>
+
+        <!-- 30秒倒计时计时器 -->
+        <div class="card text-center">
+          <h3 class="font-bold text-gray-800 text-sm mb-3">⏱️ 按压计时器（30秒）</h3>
+          <!-- 圆形SVG进度环 -->
+          <div class="relative mx-auto mb-4" style="width: 160px; height: 160px;">
+            <svg viewBox="0 0 160 160" class="w-full h-full" style="transform: rotate(-90deg);">
+              <circle cx="80" cy="80" r="70" fill="none" stroke="#e2e8f0" stroke-width="8"/>
+              <circle cx="80" cy="80" r="70" fill="none"
+                      :stroke="timerColor"
+                      stroke-width="8"
+                      stroke-linecap="round"
+                      :stroke-dasharray="circumference"
+                      :stroke-dashoffset="dashOffset"
+                      style="transition: stroke-dashoffset 0.1s linear;"/>
+            </svg>
+            <div class="absolute inset-0 flex flex-col items-center justify-center">
+              <span class="text-3xl font-bold" :style="{ color: timerColor }">{{ displayTime }}</span>
+              <span class="text-xs text-gray-400 mt-1">{{ timerStatus }}</span>
+            </div>
+          </div>
+          <!-- 控制按钮 -->
+          <div class="flex gap-3 justify-center">
+            <button class="btn-press px-6 py-2.5 rounded-xl font-semibold text-sm text-white"
+                    :style="{ background: timerRunning ? 'linear-gradient(135deg, #e53e3e, #fc8181)' : 'linear-gradient(135deg, #38a169, #68d391)' }"
+                    @click="toggleTimer">
+              {{ timerRunning ? '⏸ 暂停' : '▶️ 开始' }}
+            </button>
+            <button class="btn-press px-6 py-2.5 rounded-xl font-semibold text-sm bg-gray-100 text-gray-600"
+                    @click="resetTimer">
+              🔄 重置
+            </button>
+          </div>
+        </div>
+
+        <!-- 返回列表 -->
+        <button class="btn-press w-full card text-center py-3 text-blue-600 font-semibold text-sm"
+                @click="$root.navigate('auricular')">
+          ← 返回穴位列表
+        </button>
+      </div>
+    </div>
+  `,
+  setup(props, { root }) {
+    const pageParams = root.pageParams || {};
+    const point = computed(() => AURICULAR_POINTS.find(p => p.name === pageParams.name) || null);
+
+    // 30秒倒计时器
+    const TOTAL_TIME = 30;
+    const circumference = 2 * Math.PI * 70; // r=70 from SVG
+    const remaining = ref(TOTAL_TIME);
+    const timerRunning = ref(false);
+    let intervalId = null;
+    let audioCtx = null;
+
+    const dashOffset = computed(() => {
+      return circumference * (1 - remaining.value / TOTAL_TIME);
+    });
+
+    const displayTime = computed(() => {
+      return remaining.value;
+    });
+
+    const timerStatus = computed(() => {
+      if (timerRunning.value) return '按压中...';
+      if (remaining.value < TOTAL_TIME && remaining.value > 0) return '已暂停';
+      if (remaining.value === 0) return '✅ 完成！';
+      return '准备就绪';
+    });
+
+    const timerColor = computed(() => {
+      if (remaining.value === 0) return '#38a169';
+      if (remaining.value <= 10) return '#e53e3e';
+      if (remaining.value <= 20) return '#ed8936';
+      return '#4299e1';
+    });
+
+    const playBeep = () => {
+      try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        oscillator.frequency.value = 880;
+        oscillator.type = 'sine';
+        gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+        oscillator.start(audioCtx.currentTime);
+        oscillator.stop(audioCtx.currentTime + 0.5);
+        // 第二声
+        setTimeout(() => {
+          const osc2 = audioCtx.createOscillator();
+          const gain2 = audioCtx.createGain();
+          osc2.connect(gain2);
+          gain2.connect(audioCtx.destination);
+          osc2.frequency.value = 1100;
+          osc2.type = 'sine';
+          gain2.gain.setValueAtTime(0.3, audioCtx.currentTime);
+          gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+          osc2.start(audioCtx.currentTime);
+          osc2.stop(audioCtx.currentTime + 0.5);
+        }, 200);
+      } catch (e) { /* AudioContext not available */ }
+    };
+
+    const startTimer = () => {
+      if (remaining.value <= 0) remaining.value = TOTAL_TIME;
+      timerRunning.value = true;
+      intervalId = setInterval(() => {
+        if (remaining.value > 0) {
+          remaining.value--;
+        } else {
+          clearInterval(intervalId);
+          intervalId = null;
+          timerRunning.value = false;
+          playBeep();
+        }
+      }, 1000);
+    };
+
+    const toggleTimer = () => {
+      if (timerRunning.value) {
+        clearInterval(intervalId);
+        intervalId = null;
+        timerRunning.value = false;
+      } else {
+        startTimer();
+      }
+    };
+
+    const resetTimer = () => {
+      clearInterval(intervalId);
+      intervalId = null;
+      timerRunning.value = false;
+      remaining.value = TOTAL_TIME;
+    };
+
+    onUnmounted(() => {
+      if (intervalId) clearInterval(intervalId);
+      if (audioCtx) { try { audioCtx.close(); } catch(e) {} }
+    });
+
+    return {
+      point, circumference, dashOffset, displayTime, timerRunning,
+      timerStatus, timerColor, toggleTimer, resetTimer,
+    };
+  },
+};
+
+// ==================== AI 预测引擎 ====================
+/** 分析发作时间模式：统计每小时发作次数，返回概率数组(0-23) */
+function analyzeTimePatterns(symptoms) {
+  const hourCounts = new Array(24).fill(0);
+  symptoms.forEach(s => {
+    const h = new Date(s.time).getHours();
+    hourCounts[h]++;
+  });
+  const total = symptoms.length || 1;
+  return hourCounts.map(c => c / total);
+}
+
+/** 分析诱因影响：计算每个诱因的出现次数、伴随发作的平均严重度，与整体基线对比 */
+function analyzeTriggerImpact(symptoms) {
+  const scoreMap = { mild: 1, moderate: 2, severe: 3, extreme: 4 };
+  const overallAvg = symptoms.length
+    ? symptoms.reduce((s, r) => s + (scoreMap[r.severity] || 1), 0) / symptoms.length
+    : 0;
+  const result = {};
+  TRIGGERS.forEach(t => {
+    const withTrigger = symptoms.filter(s => s.triggers.includes(t));
+    if (withTrigger.length > 0) {
+      result[t] = {
+        count: withTrigger.length,
+        avgSeverity: withTrigger.reduce((s, r) => s + (scoreMap[r.severity] || 1), 0) / withTrigger.length,
+        baselineDiff: withTrigger.reduce((s, r) => s + (scoreMap[r.severity] || 1), 0) / withTrigger.length - overallAvg,
+      };
+    }
+  });
+  return result;
+}
+
+/** 预测未来24小时风险：基于时间模式，为每小时分类高/中/低风险 */
+function predictNext24h(patterns) {
+  return patterns.map((p, i) => ({
+    hour: i,
+    risk: p > 0.15 ? 'high' : p > 0.08 ? 'medium' : 'low',
+    probability: Math.round(p * 100),
+  }));
+}
+
+/** 回测准确率：用最近7天的小时模式预测每天发作数，计算平均准确率 */
+function backtestAccuracy(symptoms) {
+  const scoreMap = { mild: 1, moderate: 2, severe: 3, extreme: 4 };
+  const now = new Date();
+  const recentSymptoms = symptoms.filter(s => {
+    const d = new Date(s.time);
+    return (now - d) < 7 * 86400000;
+  });
+  if (recentSymptoms.length < 7) return null;
+  const patterns = analyzeTimePatterns(recentSymptoms);
+  let totalError = 0;
+  let days = 0;
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const dayStr = d.toISOString().slice(0, 10);
+    const dayRecords = recentSymptoms.filter(s => s.time.slice(0, 10) === dayStr);
+    const actual = dayRecords.length;
+    let predicted = 0;
+    dayRecords.forEach(r => { predicted += patterns[new Date(r.time).getHours()]; });
+    const avgPattern = patterns.reduce((a, b) => a + b, 0);
+    if (avgPattern > 0) predicted = Math.round(predicted / avgPattern);
+    if (actual > 0) {
+      totalError += Math.abs(predicted - actual) / actual * 100;
+      days++;
+    }
+  }
+  if (days === 0) return null;
+  return Math.round(100 - totalError / days);
+}
+
+// ==================== 耳穴压豆数据 ====================
+const AURICULAR_POINTS = [
+  { name: '神门', position: '三角窝内，对耳轮上、下脚分叉处稍上方', indication: '镇静安神、缓解焦虑', technique: '用探棒在三角窝内寻找敏感点，用王不留行籽贴压，每次按压30秒', description: '神门穴是耳穴中最常用的穴位之一，位于三角窝内，对耳轮上、下脚分叉处稍上方。该穴位具有显著的镇静安神作用，能有效缓解焦虑、失眠和情绪波动。在潮热管理中，神门穴可以帮助调节自主神经功能，减少因情绪因素诱发的潮热发作。建议每日按压3-5次，每次持续30秒，力度以感到酸胀为宜。' },
+  { name: '交感', position: '耳轮下脚末端与耳轮内缘相交处', indication: '调节自主神经功能', technique: '用王不留行籽贴压于敏感点，拇指食指对捏按压', description: '交感穴位于耳轮下脚末端与耳轮内缘相交处，是调节自主神经系统的关键穴位。通过刺激交感穴，可以平衡交感神经和副交感神经的功能，对潮热、心悸、多汗等自主神经功能紊乱症状有良好的调节作用。在ADT治疗引起的潮热中，交感穴的刺激可以帮助恢复体温调节中枢的正常功能。' },
+  { name: '内分泌', position: '耳甲腔底部，屏间切迹内', indication: '调节内分泌系统', technique: '用探棒在屏间切迹内寻找敏感点，王不留行籽贴压', description: '内分泌穴位于耳甲腔底部、屏间切迹内，直接对应人体的内分泌系统。ADT治疗导致的雄激素水平急剧下降是潮热的根本原因，通过刺激内分泌穴可以促进下丘脑-垂体-肾上腺轴的调节，帮助身体适应激素水平的变化。这是治疗ADT相关潮热的核心穴位之一。' },
+  { name: '肾', position: '对耳屏下方，耳甲腔外上方', indication: '补肾益精、调节水液代谢', technique: '用王不留行籽贴压，按压时嘱患者深呼吸', description: '肾穴位于对耳屏下方、耳甲腔外上方。中医认为肾主水、主纳气，与人体的水液代谢和生殖功能密切相关。在潮热管理中，肾穴可以帮助调节体内阴阳平衡，改善因肾阴虚导致的潮热盗汗。尤其适合伴有腰膝酸软、夜尿频多等症状的患者。' },
+  { name: '肝', position: '耳甲艇的后下方', indication: '疏肝理气、调节情绪', technique: '王不留行籽贴压，配合太冲穴按压', description: '肝穴位于耳甲艇的后下方。中医认为肝主疏泄、调节情志，情志不畅容易导致气机郁滞化火，引发潮热。通过刺激肝穴，可以疏肝理气、清泻肝火，对因情绪波动诱发的潮热有明显的缓解作用。建议配合足部太冲穴按压，效果更佳。' },
+  { name: '皮质下', position: '对耳屏内侧面', indication: '调节大脑皮层功能', technique: '用王不留行籽贴压于对耳屏内侧', description: '皮质下穴位于对耳屏内侧面，对应大脑皮层功能。该穴位可以调节大脑皮层的兴奋与抑制过程，对失眠、焦虑、疼痛等症状有良好的调节作用。在潮热管理中，皮质下穴可以帮助调节体温调控中枢，减少潮热发作的频率和强度。' },
+  { name: '心', position: '耳甲腔正中偏下方', indication: '宁心安神、调节心率', technique: '用王不留行籽轻柔贴压，避免过度刺激', description: '心穴位于耳甲腔正中偏下方，对应心脏功能。该穴位具有宁心安神、调节心率的作用，对潮热伴随的心悸、胸闷、多汗等症状有良好的缓解效果。在按压时注意力度适中，以感到轻微酸胀为宜，不宜过度刺激。' },
+  { name: '脾', position: '耳甲腔上方，耳轮脚下缘', indication: '健脾益气、统血止汗', technique: '王不留行籽贴压，配合足三里穴按摩', description: '脾穴位于耳甲腔上方、耳轮脚下缘。中医认为脾主运化、统血，与人体的消化吸收和水液代谢密切相关。通过刺激脾穴，可以健脾益气、固表止汗，对潮热伴随的自汗、乏力、食欲不振等症状有改善作用。建议配合足三里穴按摩，增强调理效果。' },
+  { name: '肺', position: '耳甲腔内，心穴周围', indication: '宣肺解表、通调水道', technique: '用王不留行籽贴压于心穴周围敏感点', description: '肺穴位于耳甲腔内心穴周围区域。中医认为肺主皮毛、通调水道，与体表的卫气功能和水液代谢密切相关。刺激肺穴可以宣肺解表、固表止汗，对潮热盗汗、皮肤瘙痒等症状有良好的缓解作用。在耳穴治疗中，肺穴常与内分泌穴配合使用，协同调节体温。' },
+  { name: '三焦', position: '耳甲腔底部，屏间切迹下方', indication: '调理全身气机、通利水道', technique: '王不留行籽贴压，按压时配合深呼吸', description: '三焦穴位于耳甲腔底部、屏间切迹下方。三焦是中医特有的概念，主持诸气、总司全身气机和气化功能。刺激三焦穴可以调理全身气机、通利水道、促进代谢，对潮热伴随的腹胀、水肿、小便不利等症状有改善作用。在综合耳穴治疗方案中，三焦穴起到协调全身的作用。' },
+];
+
 const app = createApp({
   setup() {
     // ---------- 全局状态 ----------
