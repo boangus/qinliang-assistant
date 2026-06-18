@@ -62,5 +62,33 @@ npx serve .
 ```
 ├── index.html      # 单文件应用（包含所有页面组件和逻辑）
 ├── .gitignore      # Git 忽略规则
+├── LICENSE         # MIT 开源许可证
 └── README.md       # 项目说明文档
 ```
+
+## 免责声明
+
+**本工具仅供参考和健康管理辅助，不构成医疗诊断、治疗建议或专业医疗意见。**
+
+- 如果您有严重的潮热、盗汗或其他健康问题，请务必咨询专业医生或医疗机构。
+- 本工具中的循证信息来源于公开医学文献和临床指南，但不应替代医生的个性化评估。
+- 使用本工具所产生的任何健康决策风险由用户自行承担。
+
+## 隐私与数据安全
+
+- 本工具所有数据均存储在浏览器本地（localStorage），**不会上传到任何服务器**。
+- 清除浏览器数据或卸载应用将导致数据丢失，建议定期通过个人中心导出 JSON 备份。
+- 本工具不会收集、存储或分享任何用户个人信息。
+
+## 许可证
+
+本项目采用 [MIT 许可证](LICENSE) 开源。
+
+## 第三方依赖
+
+本项目使用以下开源库，感谢相关作者和社区的贡献：
+
+- [Vue.js](https://vuejs.org/) — MIT License
+- [Tailwind CSS](https://tailwindcss.com/) — MIT License
+- [ECharts](https://echarts.apache.org/) — Apache-2.0 License
+- [marked.js](https://marked.js.org/) — MIT License
