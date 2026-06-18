@@ -249,6 +249,15 @@
   .edu-markdown th { background: #f7fafc; font-weight: 600; color: #2d3748; }
   .edu-markdown tr:nth-child(even) { background: #f7fafc; }
   .edu-markdown svg { display: block; max-width: 100%; }
+
+  /* ========== 打印报告样式 ========== */
+  @media print {
+    .tab-bar, .back-btn, .no-print { display: none !important; }
+    body { background: #fff; }
+    #app { padding-bottom: 0; }
+    .card { box-shadow: none; border: 1px solid #e2e8f0; break-inside: avoid; }
+    .header-gradient { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
 </style>
 </head>
 <body>
@@ -324,6 +333,52 @@
       </div>
     </div>
   </transition>
+
+  <!-- ==================== 每日 30 秒检查浮层 ==================== -->
+  <transition name="sheet">
+    <div v-if="showDailyCheckin" class="overlay" @click.self="showDailyCheckin = false">
+      <div class="overlay-inner">
+        <div class="flex justify-center mb-3">
+          <div class="w-10 h-1 bg-gray-300 rounded-full"></div>
+        </div>
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-bold text-gray-800">每日 30 秒检查</h3>
+          <span class="text-gray-400 cursor-pointer text-xl" @click="showDailyCheckin = false">&times;</span>
+        </div>
+        <div class="space-y-4">
+          <div v-for="item in checkinItems" :key="item.key">
+            <label class="block text-sm font-medium text-gray-600 mb-2">{{ item.emoji }} {{ item.label }}</label>
+            <div v-if="item.type === 'score'" class="flex gap-2">
+              <button v-for="n in 5" :key="n"
+                      class="btn-press flex-1 py-2 rounded-lg text-sm font-semibold border-2 transition-all"
+                      :class="dailyCheckin[item.key] === n
+                        ? 'border-blue-500 bg-blue-50 text-blue-600'
+                        : 'border-gray-200 text-gray-400'"
+                      @click="dailyCheckin[item.key] = n">
+                {{ n }}
+              </button>
+            </div>
+            <div v-else-if="item.type === 'number'" class="flex items-center gap-2">
+              <button class="btn-press w-10 h-10 rounded-lg bg-gray-100 text-gray-600 font-bold text-lg flex items-center justify-center"
+                      @click="dailyCheckin[item.key] = Math.max(0, dailyCheckin[item.key] - item.step)">−</button>
+              <input type="number" v-model.number="dailyCheckin[item.key]" min="0"
+                     class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-center text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-400" />
+              <button class="btn-press w-10 h-10 rounded-lg bg-gray-100 text-gray-600 font-bold text-lg flex items-center justify-center"
+                      @click="dailyCheckin[item.key] = dailyCheckin[item.key] + item.step">+</button>
+              <span class="text-xs text-gray-400 w-10">{{ item.unit }}</span>
+            </div>
+          </div>
+          <div class="bg-blue-50 rounded-lg p-3 text-xs text-blue-700">
+            💡 评分说明：1=很差，5=很好。连续记录 7 天以上可生成趋势分析。
+          </div>
+          <button class="btn-press w-full py-3 rounded-xl bg-gradient-to-r from-green-600 to-green-400 text-white font-semibold text-base shadow-lg shadow-green-200"
+                  @click="saveDailyCheckin">
+            保存今日检查
+          </button>
+        </div>
+      </div>
+    </div>
+  </transition>
 </div>
 
 <script>
@@ -335,6 +390,10 @@ const STORAGE_KEYS = {
   profile: 'qinling_profile',
   constitution: 'qinling_constitution',
   scaleResults: 'qinling_scale_results',
+  dailyCheckins: 'qinling_daily_checkins',
+  dietLogs: 'qinling_diet_logs',
+  waterLogs: 'qinling_water_logs',
+  exerciseLogs: 'qinling_exercise_logs',
 };
 
 const SEVERITY_MAP = {
@@ -452,13 +511,13 @@ const TAB_PAGES = ['home', 'diary', 'edu', 'profile'];
 const SUB_PAGES = [
   'diary-detail', 'stats', 'edu-detail', 'auricular', 'auricular-detail',
   'constitution', 'constitution-result', 'scale', 'scale-result',
-  'vms-survey', 'treatment', 'about', 'diet-tool', 'cbt-tool'
+  'vms-survey', 'treatment', 'about', 'diet-tool', 'cbt-tool', 'report', 'exercise'
 ];
 const ALL_PAGES = [...TAB_PAGES, ...SUB_PAGES];
 
 const pageComponents = {};
 // 已有完整实现的子页面（不需要占位）
-const FULLY_IMPLEMENTED = ['diary-detail','stats','edu-detail','auricular','auricular-detail','constitution','constitution-result','scale','scale-result','vms-survey','treatment','about','profile','diet-tool','cbt-tool'];
+const FULLY_IMPLEMENTED = ['diary-detail','stats','edu-detail','auricular','auricular-detail','constitution','constitution-result','scale','scale-result','vms-survey','treatment','about','profile','diet-tool','cbt-tool','report','exercise'];
 ALL_PAGES.forEach(name => {
   const isTab = TAB_PAGES.includes(name);
   if (FULLY_IMPLEMENTED.includes(name)) return; // 跳过，后面会定义完整组件
@@ -587,16 +646,21 @@ pageComponents['page-home'] = {
             </div>
             <span class="text-xs text-blue-100">立即缓解 · 日常预防</span>
           </div>
-          <div class="grid grid-cols-3 gap-2">
+          <div class="grid grid-cols-4 gap-2">
             <button class="btn-press text-center py-3 rounded-xl bg-white/15 hover:bg-white/25 transition-colors"
                     @click="$root.navigate('diet-tool')">
               <div class="text-2xl mb-1">🥗</div>
-              <div class="text-xs font-medium">饮食工具</div>
+              <div class="text-xs font-medium">饮食</div>
             </button>
             <button class="btn-press text-center py-3 rounded-xl bg-white/15 hover:bg-white/25 transition-colors"
                     @click="$root.navigate('cbt-tool')">
               <div class="text-2xl mb-1">🧠</div>
-              <div class="text-xs font-medium">CBT工具</div>
+              <div class="text-xs font-medium">CBT</div>
+            </button>
+            <button class="btn-press text-center py-3 rounded-xl bg-white/15 hover:bg-white/25 transition-colors"
+                    @click="$root.navigate('exercise')">
+              <div class="text-2xl mb-1">🏃</div>
+              <div class="text-xs font-medium">运动</div>
             </button>
             <button class="btn-press text-center py-3 rounded-xl bg-white/15 hover:bg-white/25 transition-colors"
                     @click="$root.navigate('auricular')">
@@ -613,17 +677,21 @@ pageComponents['page-home'] = {
             <span class="text-xl">➕</span>
             <span class="text-blue-600 font-semibold text-sm">快速记录</span>
           </button>
+          <button class="btn-press card text-center py-3"
+                  :class="$root.todayCheckin ? 'bg-green-50 border-green-200' : ''"
+                  @click="$root.showDailyCheckin = true">
+            <div class="text-2xl mb-1">✅</div>
+            <div class="text-sm font-medium" :class="$root.todayCheckin ? 'text-green-700' : 'text-gray-700'">
+              {{ $root.todayCheckin ? '今日已检查' : '每日检查' }}
+            </div>
+          </button>
           <button class="btn-press card text-center py-3" @click="$root.navigate('stats')">
             <div class="text-2xl mb-1">📊</div>
             <div class="text-sm font-medium text-gray-700">数据统计</div>
           </button>
-          <button class="btn-press card text-center py-3" @click="$root.navigate('constitution')">
-            <div class="text-2xl mb-1">🫀</div>
-            <div class="text-sm font-medium text-gray-700">体质评估</div>
-          </button>
-          <button class="btn-press card text-center py-3" @click="$root.navigate('treatment')">
-            <div class="text-2xl mb-1">💊</div>
-            <div class="text-sm font-medium text-gray-700">治疗推荐</div>
+          <button class="btn-press card text-center py-3" @click="$root.navigate('report')">
+            <div class="text-2xl mb-1">📄</div>
+            <div class="text-sm font-medium text-gray-700">健康报告</div>
           </button>
         </div>
         <div style="height: 16px;"></div>
@@ -1487,7 +1555,7 @@ NK3R拮抗剂通过阻断NKB与NK3受体的结合，抑制KNDy神经元的过度
 
 - 初期可能出现轻度头晕，属正常反应
 - 有呼吸系统疾病者请先咨询医生
-- 坚持练习2-4周可看到明显效果`
+- 坚持练习 4-6 周可能看到效果；MANCAN2 方案为 4 周 CBT，6 周时 HFNS 困扰显著下降`
   },
   {
     id: '13', title: '睡眠卫生', icon: '😴', category: '生活技巧',
@@ -1648,9 +1716,9 @@ NK3R拮抗剂通过阻断NKB与NK3受体的结合，抑制KNDy神经元的过度
 
 大豆异黄酮是最研究充分的植物雌激素，具有弱雌激素活性。
 
-- **可能效果**：部分研究显示可减少潮热频率 10-20%
-- **推荐来源**：豆浆、豆腐、纳豆、毛豆
-- **注意**：对大豆过敏者避免；与甲状腺药物间隔服用
+- **可能效果**：荟萃分析显示 ≥40 mg/日异黄酮可减少潮热频率与严重度，但个体差异大；equol 产生者效果更明显
+- **推荐来源**：豆浆、豆腐、纳豆、毛豆；优先从食物中获取，约 50 mg/日异黄酮相当于约 2 份传统豆制品
+- **注意**：对大豆过敏者避免；与甲状腺药物间隔服用；前列腺癌患者使用任何植物雌激素前请咨询肿瘤科医生
 
 ### 亚麻籽
 
@@ -1745,10 +1813,10 @@ CBT 认为，我们对事件的**想法**会影响我们的**情绪**和**行为
 
 多项随机对照试验显示，针对潮热的 CBT 可以：
 
-- 减少潮热对生活的困扰程度 30-50%
+- 减少潮热对生活的困扰程度 30-50%（MANCAN2 在 ADT 前列腺癌患者中 6 周时显著有效）
 - 降低伴随的焦虑和抑郁症状
 - 改善睡眠质量
-- 效果可持续数月`
+- 短期效果明确；长期效果需持续练习或巩固疗程`
   },
 ];
 
@@ -1899,6 +1967,13 @@ pageComponents['page-profile'] = {
           <div class="flex items-center gap-3">
             <span class="text-2xl">🧠</span>
             <div class="flex-1"><div class="font-medium text-sm">CBT 认知行为工具</div><div class="text-xs text-gray-400">呼吸训练 · 情绪管理</div></div>
+            <span class="text-gray-300">›</span>
+          </div>
+        </div>
+        <div class="card cursor-pointer btn-press" @click="$root.navigate('exercise')">
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">🏃</span>
+            <div class="flex-1"><div class="font-medium text-sm">运动处方</div><div class="text-xs text-gray-400">有氧 · 抗阻 · 疲劳管理</div></div>
             <span class="text-gray-300">›</span>
           </div>
         </div>
@@ -3083,7 +3158,7 @@ const TREATMENT_TIER1 = [
     icon: '🌡️',
     steps: ['卧室温度保持18-22°C','随身携带便携风扇和冷敷贴','使用分层穿衣法便于增减','避免高温环境和辛辣食物'],
     precautions: '空调避免直吹；冷敷时间不宜过长',
-    evidence: 'B',
+    evidence: 'C',
   },
   {
     name: '饮食回避与调节',
@@ -3095,9 +3170,9 @@ const TREATMENT_TIER1 = [
   {
     name: '规律有氧运动',
     icon: '🏃',
-    steps: ['每周3-5次，每次30分钟','选择快走、游泳或骑自行车','运动时间避开高温时段','运动后充分补水'],
-    precautions: '运动强度循序渐进；运动前做好热身',
-    evidence: 'B',
+    steps: ['每周150分钟中等强度有氧 + 2次抗阻训练','选择快走、游泳或骑自行车','运动时间避开高温时段','运动后充分补水'],
+    precautions: '运动强度循序渐进；ADT 患者体能可能下降，避免突然增加强度',
+    evidence: 'A',
   },
 ];
 
@@ -4067,18 +4142,19 @@ pageComponents['page-treatment'] = {
 // ==================== 饮食管理工具（新增）====================
 const DIET_FOODS = [
   // 推荐吃
-  { name: '大豆制品', emoji: '🥛', type: 'recommend', reason: '富含大豆异黄酮，可部分替代雌激素作用', tags: ['植物雌激素', '豆浆', '豆腐'] },
-  { name: '深海鱼类', emoji: '🐟', type: 'recommend', reason: 'Omega-3有助于抗炎和神经递质平衡', tags: ['三文鱼', '沙丁鱼', '抗炎'] },
-  { name: '亚麻籽', emoji: '🌾', type: 'recommend', reason: '富含木脂素，具有弱雌激素活性', tags: ['木脂素', '早餐', '酸奶'] },
-  { name: '新鲜蔬果', emoji: '🥬', type: 'recommend', reason: '维生素、矿物质和膳食纤维有助于体温调节', tags: ['西兰花', '菠菜', '苹果'] },
-  { name: '百合银耳', emoji: '🍵', type: 'recommend', reason: '中医认为滋阴润燥，适合阴虚潮热', tags: ['滋阴', '润燥', '甜品'] },
+  { name: '大豆制品', emoji: '🥛', type: 'recommend', reason: '大豆异黄酮约 50mg/日可能缓解潮热（个体差异大，equol 产生者效果更明显）', tags: ['植物雌激素', '豆浆', '豆腐'] },
+  { name: '深海鱼类', emoji: '🐟', type: 'recommend', reason: 'Omega-3 有助抗炎和神经递质平衡，建议每周 2 次', tags: ['三文鱼', '沙丁鱼', '抗炎'] },
+  { name: '亚麻籽', emoji: '🌾', type: 'recommend', reason: '富含木脂素和膳食纤维，可作为地中海饮食模式的补充', tags: ['木脂素', '早餐', '酸奶'] },
+  { name: '新鲜蔬果', emoji: '🥬', type: 'recommend', reason: '维生素、矿物质和膳食纤维有助于体温调节和心血管健康', tags: ['西兰花', '菠菜', '苹果'] },
+  { name: '百合银耳', emoji: '🍵', type: 'recommend', reason: '中医滋阴润燥，适合阴虚内热型潮热盗汗', tags: ['滋阴', '润燥', '甜品'] },
+  { name: '含镁食物', emoji: '🎃', type: 'recommend', reason: '镁有助于肌肉放松和神经系统稳定，如南瓜籽、杏仁、深绿叶菜', tags: ['镁', '南瓜籽', '杏仁'] },
   // 适量吃
-  { name: '咖啡因', emoji: '☕', type: 'moderate', reason: '每日控制在200mg以内，约2杯咖啡', tags: ['咖啡', '茶', '限量'] },
-  { name: '温热食物', emoji: '🍲', type: 'moderate', reason: '食物温度控制在40-50°C，避免过热触发', tags: ['温度', '热汤', '温水'] },
+  { name: '咖啡因', emoji: '☕', type: 'moderate', reason: '每日控制在 200mg 以内（约 2 杯咖啡），下午后尽量少喝', tags: ['咖啡', '茶', '限量'] },
+  { name: '温热食物', emoji: '🍲', type: 'moderate', reason: '食物温度控制在 40-50°C，避免过热直接触发潮热', tags: ['温度', '热汤', '温水'] },
   // 避免吃
-  { name: '辛辣食物', emoji: '🌶️', type: 'avoid', reason: '辣椒素激活TRPV1受体，直接诱发潮热', tags: ['辣椒', '花椒', '芥末'] },
-  { name: '酒精', emoji: '🍷', type: 'avoid', reason: '扩张血管、升高体温，强效诱发因素', tags: ['白酒', '啤酒', '红酒'] },
-  { name: '高糖高脂', emoji: '🍰', type: 'avoid', reason: '影响血糖波动和炎症水平，加重潮热', tags: ['甜点', '油炸', '加工食品'] },
+  { name: '辛辣食物', emoji: '🌶️', type: 'avoid', reason: '辣椒素激活 TRPV1 受体，直接诱发潮热和出汗', tags: ['辣椒', '花椒', '芥末'] },
+  { name: '酒精', emoji: '🍷', type: 'avoid', reason: '扩张血管、升高体温，是强效潮热诱发因素', tags: ['白酒', '啤酒', '红酒'] },
+  { name: '高糖高脂', emoji: '🍰', type: 'avoid', reason: '影响血糖波动和炎症水平，可能加重潮热', tags: ['甜点', '油炸', '加工食品'] },
 ];
 
 pageComponents['page-diet-tool'] = {
@@ -4098,7 +4174,7 @@ pageComponents['page-diet-tool'] = {
             <span class="text-2xl">💡</span>
             <div>
               <h3 class="font-bold text-sm text-gray-800 mb-1">如何使用饮食工具</h3>
-              <p class="text-xs text-gray-600 leading-relaxed">记录每餐摄入的易诱发食物，观察饮食与潮热的关系。工具会根据您的记录给出个性化建议。</p>
+              <p class="text-xs text-gray-600 leading-relaxed">记录每餐摄入的易诱发食物，观察饮食与潮热的关系。注意：大豆异黄酮效果因人而异，equol 产生者可能获益更明显；建议优先从天然食物中获取。</p>
             </div>
           </div>
         </div>
@@ -4311,33 +4387,91 @@ const CBT_TOOLS = [
     title: '4-7-8 呼吸法',
     emoji: '🫁',
     desc: '快速激活副交感神经，缓解突发潮热和焦虑',
+    type: 'timer',
     duration: 60,
     guide: ['舌尖抵住上颚', '鼻子吸气 4 秒', '屏息 7 秒', '嘴巴呼气 8 秒'],
+    evidence: 'A',
+    evidenceNote: 'NCCN/PDQ 将放松训练与 paced breathing 列为非药物干预；MANCAN2 RCT 显示 CBT 在 6 周内显著减轻 HFNS 困扰、焦虑和抑郁，但 6 个月时效果未维持，建议持续练习。',
   },
   {
     id: 'abdominal',
     title: '腹式呼吸训练',
     emoji: '🧘',
     desc: '每日练习可降低交感神经兴奋，减少潮热频率',
+    type: 'timer',
     duration: 120,
     guide: ['一手放胸，一手放腹', '鼻吸时腹部鼓起', '口呼时腹部回落', '保持缓慢深长'],
+    evidence: 'A',
+    evidenceNote: '慢呼吸（约 6 次/分钟）可增强迷走张力，帮助体温调节中枢恢复稳定。',
   },
   {
     id: 'muscle',
     title: '渐进式肌肉放松',
     emoji: '💪',
     desc: '通过交替紧张和放松肌群，降低整体紧张水平',
+    type: 'timer',
     duration: 180,
     guide: ['收紧脚趾 5 秒', '放松 15 秒', '依次向上：小腿→大腿→腹部', '最后面部放松'],
+    evidence: 'B',
+    evidenceNote: '渐进式肌肉放松是 CBT 方案中的常用组成部分，可降低焦虑与自主神经唤醒。',
   },
   {
     id: 'cognitive',
     title: '认知重构练习',
     emoji: '🧠',
     desc: '改变对潮热的灾难化思维，减少焦虑和回避行为',
+    type: 'worksheet',
     duration: 90,
     guide: ['识别自动想法', '评估证据', '寻找替代想法', '制定行动计划'],
+    evidence: 'A',
+    evidenceNote: 'MANCAN2 多中心 RCT 显示，ADT 前列腺癌患者接受 4 周 CBT 后，6 周时 HFNS 评分、焦虑与抑郁均显著改善；效果在 6 个月时未维持，提示需持续练习或巩固。',
   },
+  {
+    id: 'sleep',
+    title: '睡眠卫生检查表',
+    emoji: '🌙',
+    desc: '优化睡眠环境与习惯，减少夜间盗汗对睡眠的破坏',
+    type: 'checklist',
+    duration: 0,
+    evidence: 'B',
+    evidenceNote: 'NCI PDQ 指出夜间盗汗与睡眠困难密切相关；保持凉爽睡眠环境可减少觉醒。',
+    items: [
+      { id: 'cool', label: '卧室保持 15–18°C 凉爽', tip: '使用风扇或空调，避免热量积聚' },
+      { id: 'breathable', label: '使用透气、吸湿排汗的床品', tip: '优先选择棉、竹纤维或亚麻材质' },
+      { id: 'layer', label: '睡前准备好分层衣物/薄被', tip: '方便夜间随时增减' },
+      { id: 'shower', label: '睡前 60–90 分钟洗温水/凉水澡', tip: '帮助核心体温下降' },
+      { id: 'screen', label: '睡前 1 小时减少屏幕与强光', tip: '保护褪黑素分泌' },
+      { id: 'caffeine', label: '午后避免咖啡因和酒精', tip: '两者均会干扰睡眠并诱发潮热' },
+      { id: 'snack', label: '可选少量富含镁的晚间零食', tip: '如杏仁、南瓜籽，帮助放松' },
+      { id: 'routine', label: '固定就寝与起床时间', tip: '睡眠规律性比总时长更能预测健康结局' },
+    ],
+  },
+  {
+    id: 'cooling',
+    title: '分层降温技术',
+    emoji: '🧊',
+    desc: '潮热发生时与环境预防的分层应对方案',
+    type: 'tiered',
+    duration: 0,
+    evidence: 'C',
+    evidenceNote: '核心体温上升先于潮热出现；分层降温与环境控制基于生理机制和专家经验，缺乏高质量 RCT 证据（NAMS Level V），但临床常用且无害。',
+    tiers: [
+      { level: '预防层', icon: '👕', actions: ['穿多层棉质衣物', '随身携带便携风扇', '避免高温密闭环境'] },
+      { level: '预警层', icon: '⏰', actions: ['记录高发时段并提前 15 分钟准备', '饮用凉水', '冷敷手腕/颈后'] },
+      { level: '急性层', icon: '❄️', actions: ['立即脱去外层衣物', '冷毛巾敷脸/后颈', '启动 4-7-8 呼吸'] },
+      { level: '恢复层', icon: '🌿', actions: ['更换汗湿衣物', '补充 200ml 水分', '记录发作与缓解方式'] },
+    ],
+  },
+];
+
+const CBT_7DAY_PLAN = [
+  { day: 1, toolId: 'breathing478', title: '4-7-8 呼吸法', emoji: '🫁', desc: '学习快速缓解突发潮热的呼吸技术', duration: '1-2 分钟' },
+  { day: 2, toolId: 'abdominal', title: '腹式呼吸训练', emoji: '🧘', desc: '建立每日慢呼吸习惯，增强迷走张力', duration: '5-10 分钟' },
+  { day: 3, toolId: 'muscle', title: '渐进式肌肉放松', emoji: '💪', desc: '通过交替紧张-放松降低整体唤醒水平', duration: '15-20 分钟' },
+  { day: 4, toolId: 'cognitive', title: '认知重构工作表', emoji: '🧠', desc: '识别并调整对潮热的灾难化思维', duration: '5-10 分钟' },
+  { day: 5, toolId: 'sleep', title: '睡眠卫生检查表', emoji: '🌙', desc: '优化睡眠环境，减少夜间盗汗影响', duration: '5 分钟' },
+  { day: 6, toolId: 'cooling', title: '分层降温技术', emoji: '🧊', desc: '建立预防-预警-急性-恢复四层应对方案', duration: '5 分钟' },
+  { day: 7, toolId: 'breathing478', title: '综合练习日', emoji: '🌟', desc: '复习 4-7-8 呼吸 + 认知重构，记录一周进步', duration: '10 分钟' },
 ];
 
 pageComponents['page-cbt-tool'] = {
@@ -4357,13 +4491,58 @@ pageComponents['page-cbt-tool'] = {
             <span class="text-2xl">💡</span>
             <div>
               <h3 class="font-bold text-sm text-gray-800 mb-1">CBT 如何帮助潮热</h3>
-              <p class="text-xs text-gray-600 leading-relaxed">CBT 通过改变对潮热的认知和情绪反应，打破「潮热→焦虑→更多潮热」的恶性循环。研究表明，坚持 CBT 练习 4-6 周可显著降低潮热困扰程度。</p>
+              <p class="text-xs text-gray-600 leading-relaxed">CBT 通过改变对潮热的认知和情绪反应，打破「潮热→焦虑→更多潮热」的恶性循环。MANCAN2 多中心 RCT 显示，ADT 前列腺癌患者接受 4 周 CBT 后，6 周内潮热困扰、焦虑和抑郁评分均显著改善；但 6 个月时效果未维持，建议将 CBT 作为日常习惯持续练习。</p>
             </div>
           </div>
         </div>
 
+        <!-- 7 天入门计划 -->
+        <div class="card" style="background: linear-gradient(135deg, #ebf8ff, #faf5ff);">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h3 class="font-bold text-sm text-gray-800">🗓️ CBT 7 天入门计划</h3>
+              <p class="text-xs text-gray-500">每天一项技能，建立应对潮热的习惯</p>
+            </div>
+            <div class="text-right">
+              <div class="text-2xl font-bold text-blue-600">{{ completedDaysCount }}/7</div>
+              <div class="text-xs text-gray-400">已完成</div>
+            </div>
+          </div>
+          <div class="w-full h-2 bg-white/70 rounded-full overflow-hidden mb-3">
+            <div class="h-full rounded-full bg-gradient-to-r from-blue-400 to-green-400 transition-all"
+                 :style="{ width: (completedDaysCount / 7 * 100) + '%' }"></div>
+          </div>
+          <div class="space-y-2">
+            <div v-for="day in CBT_7DAY_PLAN" :key="day.day"
+                 class="p-3 rounded-xl border transition-all cursor-pointer btn-press"
+                 :class="activeDay && activeDay.day === day.day ? 'bg-blue-50 border-blue-300' : 'bg-white/70 border-white/50'"
+                 @click="selectDay(day)">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
+                     :class="isDayCompleted(day.day) ? 'bg-green-500 text-white' : 'bg-blue-100 text-blue-600'">
+                  {{ isDayCompleted(day.day) ? '✓' : day.day }}
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2">
+                    <span>{{ day.emoji }}</span>
+                    <span class="text-sm font-bold text-gray-800 truncate">{{ day.title }}</span>
+                  </div>
+                  <div class="text-xs text-gray-500 truncate">{{ day.desc }}</div>
+                </div>
+                <div class="text-xs text-gray-400 whitespace-nowrap">{{ day.duration }}</div>
+              </div>
+            </div>
+          </div>
+          <button v-if="activeDay" class="btn-press w-full mt-3 py-2 rounded-xl bg-gradient-to-r from-green-600 to-green-400 text-white text-sm font-semibold"
+                  :disabled="isDayCompleted(activeDay.day)"
+                  :class="isDayCompleted(activeDay.day) ? 'opacity-70 cursor-default' : ''"
+                  @click="markDayCompleted(activeDay.day)">
+            {{ isDayCompleted(activeDay.day) ? '✅ 今日已完成' : '✓ 标记今日完成' }}
+          </button>
+        </div>
+
         <!-- 工具列表 -->
-        <div v-for="tool in CBT_TOOLS" :key="tool.id" class="card cursor-pointer btn-press"
+        <div v-for="tool in CBT_TOOLS" :key="tool.id" :id="'cbt-tool-' + tool.id" class="card cursor-pointer btn-press"
              @click="selectTool(tool.id)">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-3">
@@ -4374,39 +4553,138 @@ pageComponents['page-cbt-tool'] = {
                 <div class="text-xs text-gray-400">{{ tool.desc }}</div>
               </div>
             </div>
-            <span class="text-gray-400 text-sm">{{ activeTool === tool.id ? '▲' : '▼' }}</span>
+            <div class="flex items-center gap-2">
+              <span class="text-xs px-2 py-0.5 rounded-full font-bold" :class="evidenceClass(tool.evidence)">
+                {{ tool.evidence === 'A' ? '强证据' : tool.evidence === 'B' ? '中证据' : '初步证据' }}
+              </span>
+              <span class="text-gray-400 text-sm">{{ activeTool === tool.id ? '▲' : '▼' }}</span>
+            </div>
           </div>
 
           <!-- 展开的练习面板 -->
           <div v-if="activeTool === tool.id" class="mt-4 pt-3 border-t border-gray-100">
-            <!-- 步骤引导 -->
-            <div class="grid grid-cols-2 gap-2 mb-4">
-              <div v-for="(step, i) in tool.guide" :key="i" class="bg-gray-50 rounded-lg p-2 text-center">
-                <div class="w-5 h-5 rounded-full bg-blue-100 text-blue-600 text-xs font-bold flex items-center justify-center mx-auto mb-1">{{ i + 1 }}</div>
-                <div class="text-xs text-gray-600 leading-tight">{{ step }}</div>
-              </div>
-            </div>
+            <!-- 循证说明 -->
+            <div class="text-xs text-gray-500 bg-gray-50 rounded-lg p-2 mb-3">📚 {{ tool.evidenceNote }}</div>
 
-            <!-- 计时器 -->
-            <div class="text-center mb-4">
-              <div class="text-4xl font-bold mb-1" :style="{ color: timerRunning ? '#4299e1' : '#2d3748' }">{{ formatTime(remaining) }}</div>
-              <div class="text-xs text-gray-400 mb-3">{{ timerRunning ? '练习中...' : '点击开始练习' }}</div>
-              <div class="flex gap-3 justify-center">
-                <button class="btn-press px-6 py-2 rounded-xl text-white font-semibold text-sm"
-                        :style="{ background: timerRunning ? 'linear-gradient(135deg, #e53e3e, #fc8181)' : 'linear-gradient(135deg, #38a169, #68d391)' }"
-                        @click.stop="toggleTimer(tool.duration)">
-                  {{ timerRunning ? '⏸ 暂停' : '▶️ 开始' }}
-                </button>
-                <button class="btn-press px-6 py-2 rounded-xl bg-gray-100 text-gray-600 font-semibold text-sm"
-                        @click.stop="resetTimer(tool.duration)">🔄 重置</button>
+            <!-- 计时器类工具 -->
+            <template v-if="tool.type === 'timer'">
+              <div class="grid grid-cols-2 gap-2 mb-4">
+                <div v-for="(step, i) in tool.guide" :key="i" class="bg-gray-50 rounded-lg p-2 text-center">
+                  <div class="w-5 h-5 rounded-full bg-blue-100 text-blue-600 text-xs font-bold flex items-center justify-center mx-auto mb-1">{{ i + 1 }}</div>
+                  <div class="text-xs text-gray-600 leading-tight">{{ step }}</div>
+                </div>
               </div>
-            </div>
+              <div class="text-center mb-4">
+                <div class="text-4xl font-bold mb-1" :style="{ color: timerRunning ? '#4299e1' : '#2d3748' }">{{ formatTime(remaining) }}</div>
+                <div class="text-xs text-gray-400 mb-3">{{ timerRunning ? '练习中...' : '点击开始练习' }}</div>
+                <div class="flex gap-3 justify-center">
+                  <button class="btn-press px-6 py-2 rounded-xl text-white font-semibold text-sm"
+                          :style="{ background: timerRunning ? 'linear-gradient(135deg, #e53e3e, #fc8181)' : 'linear-gradient(135deg, #38a169, #68d391)' }"
+                          @click.stop="toggleTimer(tool.duration)">
+                    {{ timerRunning ? '⏸ 暂停' : '▶️ 开始' }}
+                  </button>
+                  <button class="btn-press px-6 py-2 rounded-xl bg-gray-100 text-gray-600 font-semibold text-sm"
+                          @click.stop="resetTimer(tool.duration)">🔄 重置</button>
+                </div>
+              </div>
+              <div class="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div class="h-full rounded-full bg-gradient-to-r from-blue-400 to-green-400 transition-all"
+                     :style="{ width: (1 - remaining / tool.duration) * 100 + '%' }"></div>
+              </div>
+            </template>
 
-            <!-- 进度条 -->
-            <div class="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-              <div class="h-full rounded-full bg-gradient-to-r from-blue-400 to-green-400 transition-all"
-                   :style="{ width: (1 - remaining / tool.duration) * 100 + '%' }"></div>
-            </div>
+            <!-- 认知重构工作表 -->
+            <template v-if="tool.type === 'worksheet'">
+              <div class="space-y-3">
+                <div>
+                  <label class="text-xs text-gray-500">触发情境</label>
+                  <input v-model="worksheet.situation" type="text" placeholder="例如：开会时突然潮热" class="form-input text-sm mt-1" />
+                </div>
+                <div>
+                  <label class="text-xs text-gray-500">自动想法</label>
+                  <input v-model="worksheet.thought" type="text" placeholder="例如：别人会嘲笑我" class="form-input text-sm mt-1" />
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                  <div>
+                    <label class="text-xs text-gray-500">支持这个想法的证据</label>
+                    <textarea v-model="worksheet.evidenceFor" rows="2" placeholder="写下来..." class="form-input text-sm mt-1"></textarea>
+                  </div>
+                  <div>
+                    <label class="text-xs text-gray-500">反对这个想法的证据</label>
+                    <textarea v-model="worksheet.evidenceAgainst" rows="2" placeholder="写下来..." class="form-input text-sm mt-1"></textarea>
+                  </div>
+                </div>
+                <div>
+                  <label class="text-xs text-gray-500">替代想法</label>
+                  <input v-model="worksheet.alternative" type="text" placeholder="例如：潮热是常见治疗反应，我可以深呼吸应对" class="form-input text-sm mt-1" />
+                </div>
+                <div>
+                  <label class="text-xs text-gray-500">行动计划</label>
+                  <input v-model="worksheet.plan" type="text" placeholder="例如：下次发作时先做 4-7-8 呼吸" class="form-input text-sm mt-1" />
+                </div>
+                <button class="btn-press w-full py-2 rounded-xl bg-gradient-to-r from-purple-600 to-purple-400 text-white text-sm font-semibold"
+                        @click.stop="saveWorksheet">保存工作表</button>
+                <div v-if="worksheetLogs.length" class="mt-2 space-y-2">
+                  <div v-for="log in worksheetLogs.slice(-2).reverse()" :key="log.id" class="text-xs text-gray-600 bg-gray-50 rounded-lg p-2">
+                    <div class="font-medium mb-0.5">{{ new Date(log.time).toLocaleDateString('zh-CN') }} {{ log.situation }}</div>
+                    <div class="text-gray-400">{{ log.thought }} → {{ log.alternative }}</div>
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <!-- 睡眠卫生检查表 -->
+            <template v-if="tool.type === 'checklist'">
+              <div class="mb-3">
+                <div class="flex justify-between text-xs text-gray-500 mb-1">
+                  <span>完成进度</span>
+                  <span>{{ checkedCount(tool) }}/{{ tool.items.length }}</span>
+                </div>
+                <div class="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div class="h-full rounded-full bg-green-400 transition-all" :style="{ width: (checkedCount(tool) / tool.items.length * 100) + '%' }"></div>
+                </div>
+              </div>
+              <div class="space-y-2">
+                <div v-for="item in tool.items" :key="item.id"
+                     class="flex items-start gap-2 p-2 rounded-lg border transition-all cursor-pointer"
+                     :class="checklistState[item.id] ? 'bg-green-50 border-green-200' : 'bg-white border-gray-100'"
+                     @click.stop="toggleChecklist(item.id)">
+                  <div class="w-5 h-5 rounded border flex items-center justify-center mt-0.5"
+                       :class="checklistState[item.id] ? 'bg-green-500 border-green-500' : 'border-gray-300'">
+                    <span v-if="checklistState[item.id]" class="text-white text-xs">✓</span>
+                  </div>
+                  <div class="flex-1">
+                    <div class="text-xs font-medium" :class="checklistState[item.id] ? 'text-green-700' : 'text-gray-700'">{{ item.label }}</div>
+                    <div class="text-xs text-gray-400">{{ item.tip }}</div>
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <!-- 分层降温技术 -->
+            <template v-if="tool.type === 'tiered'">
+              <div class="space-y-2">
+                <div v-for="(tier, i) in tool.tiers" :key="i"
+                     class="p-3 rounded-xl border transition-all cursor-pointer"
+                     :class="selectedTier === i ? 'bg-blue-50 border-blue-300' : 'bg-white border-gray-100'"
+                     @click.stop="selectedTier = selectedTier === i ? null : i">
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                      <span class="text-lg">{{ tier.icon }}</span>
+                      <span class="text-sm font-bold" :class="selectedTier === i ? 'text-blue-700' : 'text-gray-700'">{{ tier.level }}</span>
+                    </div>
+                    <span class="text-gray-400 text-xs">{{ selectedTier === i ? '▲' : '▼' }}</span>
+                  </div>
+                  <div v-if="selectedTier === i" class="mt-2 pt-2 border-t border-blue-100">
+                    <ul class="space-y-1">
+                      <li v-for="(action, ai) in tier.actions" :key="ai" class="text-xs text-gray-600 pl-4 relative">
+                        <span class="absolute left-0 text-blue-500 font-bold">{{ ai + 1 }}.</span>{{ action }}
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </template>
           </div>
         </div>
 
@@ -4441,7 +4719,7 @@ pageComponents['page-cbt-tool'] = {
             <span class="text-2xl">🌟</span>
             <div>
               <h3 class="font-bold text-sm text-gray-800 mb-1">案例：李叔的 CBT 实践</h3>
-              <p class="text-xs text-gray-600 leading-relaxed">65岁患者因潮热产生"别人会嘲笑我"的焦虑。通过认知重构，他意识到潮热是常见治疗反应，焦虑明显减轻，社交活动恢复正常，潮热频率也下降了约30%。</p>
+              <p class="text-xs text-gray-600 leading-relaxed">65岁 ADT 患者因潮热产生"别人会嘲笑我"的焦虑。通过认知重构工作表，他意识到潮热是常见治疗反应，焦虑明显减轻，社交活动恢复正常，夜间盗汗频率也下降了约 30%。</p>
             </div>
           </div>
         </div>
@@ -4456,19 +4734,72 @@ pageComponents['page-cbt-tool'] = {
     let intervalId = null;
     const anxietyBefore = ref(5);
     const anxietyAfter = ref(3);
+    const selectedTier = ref(null);
 
-    const moodKey = 'qinling_cbt_mood_' + new Date().toISOString().slice(0, 10);
+    // ---------- 7 天入门计划 ----------
+    const planKey = 'qinling_cbt_7day_plan';
+    const savedPlan = localStorage.getItem(planKey);
+    const planState = reactive(savedPlan ? JSON.parse(savedPlan) : { startDate: new Date().toISOString().slice(0, 10), completed: [] });
+    const activeDay = ref(null);
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const currentDay = computed(() => {
+      const start = new Date(planState.startDate);
+      const today = new Date(todayStr);
+      const diff = Math.floor((today - start) / (24 * 60 * 60 * 1000));
+      return Math.max(1, Math.min(7, diff + 1));
+    });
+
+    const completedDaysCount = computed(() => planState.completed.length);
+    const isDayCompleted = (day) => planState.completed.includes(day);
+
+    const selectDay = (day) => {
+      activeDay.value = day;
+      selectTool(day.toolId);
+      // 自动滚动到对应工具
+      nextTick(() => {
+        const el = document.getElementById('cbt-tool-' + day.toolId);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    };
+
+    const markDayCompleted = (day) => {
+      if (!planState.completed.includes(day)) {
+        planState.completed.push(day);
+        planState.completed.sort((a, b) => a - b);
+        localStorage.setItem(planKey, JSON.stringify(planState));
+      }
+    };
+
+    const moodKey = 'qinling_cbt_mood_' + todayStr;
     const savedMood = localStorage.getItem(moodKey);
     const moodLogs = reactive(savedMood ? JSON.parse(savedMood) : []);
+
+    const wsKey = 'qinling_cbt_worksheet_' + todayStr;
+    const savedWs = localStorage.getItem(wsKey);
+    const worksheetLogs = reactive(savedWs ? JSON.parse(savedWs) : []);
+    const worksheet = reactive({ situation: '', thought: '', evidenceFor: '', evidenceAgainst: '', alternative: '', plan: '' });
+
+    const chkKey = 'qinling_cbt_checklist_' + todayStr;
+    const savedChk = localStorage.getItem(chkKey);
+    const checklistState = reactive(savedChk ? JSON.parse(savedChk) : {});
+
+    const evidenceClass = (level) => {
+      if (level === 'A') return 'bg-green-100 text-green-700';
+      if (level === 'B') return 'bg-blue-100 text-blue-700';
+      return 'bg-gray-100 text-gray-600';
+    };
 
     const selectTool = (id) => {
       if (activeTool.value === id) {
         activeTool.value = null;
         resetTimer(0);
+        selectedTier.value = null;
       } else {
         activeTool.value = id;
         const tool = CBT_TOOLS.find(t => t.id === id);
         resetTimer(tool ? tool.duration : 0);
+        selectedTier.value = null;
       }
     };
 
@@ -4515,14 +4846,489 @@ pageComponents['page-cbt-tool'] = {
       anxietyAfter.value = Math.max(1, anxietyAfter.value - 1);
     };
 
+    const saveWorksheet = () => {
+      if (!worksheet.situation && !worksheet.thought) return;
+      worksheetLogs.push({ id: Date.now(), ...Vue.toRaw ? Vue.toRaw(worksheet) : JSON.parse(JSON.stringify(worksheet)), time: new Date().toISOString() });
+      localStorage.setItem(wsKey, JSON.stringify(worksheetLogs));
+      Object.keys(worksheet).forEach(k => worksheet[k] = '');
+    };
+
+    const checkedCount = (tool) => {
+      return tool.items.filter(item => checklistState[item.id]).length;
+    };
+
+    const toggleChecklist = (id) => {
+      checklistState[id] = !checklistState[id];
+      localStorage.setItem(chkKey, JSON.stringify(checklistState));
+    };
+
     onUnmounted(() => {
       if (intervalId) clearInterval(intervalId);
     });
 
     return {
-      CBT_TOOLS, activeTool, remaining, timerRunning,
-      anxietyBefore, anxietyAfter, moodLogs,
-      selectTool, formatTime, toggleTimer, resetTimer, saveMoodLog,
+      CBT_TOOLS, CBT_7DAY_PLAN, activeTool, remaining, timerRunning, selectedTier,
+      anxietyBefore, anxietyAfter, moodLogs, worksheet, worksheetLogs, checklistState,
+      activeDay, currentDay, completedDaysCount,
+      selectTool, formatTime, toggleTimer, resetTimer, saveMoodLog, saveWorksheet,
+      checkedCount, toggleChecklist, evidenceClass,
+      selectDay, isDayCompleted, markDayCompleted,
+    };
+  },
+};
+
+// ==================== 运动处方工具（新增）====================
+pageComponents['page-exercise'] = {
+  template: `
+    <div>
+      <div class="header-gradient" style="padding-bottom: 28px;">
+        <div class="back-btn" @click="$root.goBack()">←</div>
+        <div class="text-center pl-10">
+          <h1 class="text-xl font-bold">运动处方</h1>
+          <p class="text-blue-100 text-xs mt-1">科学运动 · 改善疲劳与生活质量</p>
+        </div>
+      </div>
+      <div class="px-4 -mt-4 relative z-10 pb-24 space-y-4">
+        <!-- 循证说明 -->
+        <div class="card" style="background: linear-gradient(135deg, #f0fff4, #ebf8ff);">
+          <div class="flex items-start gap-3">
+            <span class="text-2xl">📚</span>
+            <div>
+              <h3 class="font-bold text-sm text-gray-800 mb-1">运动的循证证据</h3>
+              <p class="text-xs text-gray-600 leading-relaxed">Maughan 等 2025 ASCO 研究显示，12 周结构化运动使晚期前列腺癌 ADT 患者疲劳评分下降 5.1 分（具有临床意义）。STAMINA 试验推荐每周 150 分钟中等强度有氧 + 2 次抗阻训练。</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 本周目标 -->
+        <div class="card">
+          <h3 class="font-bold text-sm text-gray-800 mb-3">🎯 本周目标</h3>
+          <div class="grid grid-cols-2 gap-3 mb-3">
+            <div class="bg-blue-50 rounded-xl p-3 text-center">
+              <div class="text-2xl font-bold text-blue-600">{{ weeklyAerobic }}</div>
+              <div class="text-xs text-gray-500">有氧分钟 / 150</div>
+            </div>
+            <div class="bg-green-50 rounded-xl p-3 text-center">
+              <div class="text-2xl font-bold text-green-600">{{ weeklyResistance }}</div>
+              <div class="text-xs text-gray-500">抗阻次数 / 2</div>
+            </div>
+          </div>
+          <div class="space-y-2">
+            <div>
+              <div class="flex justify-between text-xs text-gray-500 mb-1"><span>有氧进度</span><span>{{ Math.min(100, Math.round(weeklyAerobic / 150 * 100)) }}%</span></div>
+              <div class="w-full h-2 bg-gray-100 rounded-full overflow-hidden"><div class="h-full rounded-full bg-blue-500 transition-all" :style="{ width: Math.min(100, weeklyAerobic / 150 * 100) + '%' }"></div></div>
+            </div>
+            <div>
+              <div class="flex justify-between text-xs text-gray-500 mb-1"><span>抗阻进度</span><span>{{ Math.min(100, weeklyResistance / 2 * 100) }}%</span></div>
+              <div class="w-full h-2 bg-gray-100 rounded-full overflow-hidden"><div class="h-full rounded-full bg-green-500 transition-all" :style="{ width: Math.min(100, weeklyResistance / 2 * 100) + '%' }"></div></div>
+            </div>
+          </div>
+          <div v-if="weeklyAerobic >= 150 && weeklyResistance >= 2" class="mt-3 text-center text-xs font-bold text-green-600 bg-green-50 rounded-lg py-2">🎉 本周运动目标已达成！</div>
+        </div>
+
+        <!-- 快速记录 -->
+        <div class="card">
+          <h3 class="font-bold text-sm text-gray-800 mb-3">➕ 记录今日运动</h3>
+          <div class="space-y-3">
+            <div>
+              <label class="form-label">日期</label>
+              <input type="date" v-model="form.date" class="form-input" />
+            </div>
+            <div>
+              <label class="form-label">有氧运动（分钟）</label>
+              <div class="flex items-center gap-2">
+                <button class="btn-press w-10 h-10 rounded-lg bg-gray-100 text-gray-600 font-bold text-lg flex items-center justify-center" @click="form.aerobic = Math.max(0, form.aerobic - 10)">−</button>
+                <input type="number" v-model.number="form.aerobic" min="0" class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-center text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                <button class="btn-press w-10 h-10 rounded-lg bg-gray-100 text-gray-600 font-bold text-lg flex items-center justify-center" @click="form.aerobic = form.aerobic + 10">+</button>
+              </div>
+            </div>
+            <div>
+              <label class="form-label">抗阻训练（次）</label>
+              <div class="flex items-center gap-2">
+                <button class="btn-press w-10 h-10 rounded-lg bg-gray-100 text-gray-600 font-bold text-lg flex items-center justify-center" @click="form.resistance = Math.max(0, form.resistance - 1)">−</button>
+                <input type="number" v-model.number="form.resistance" min="0" class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-center text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                <button class="btn-press w-10 h-10 rounded-lg bg-gray-100 text-gray-600 font-bold text-lg flex items-center justify-center" @click="form.resistance = form.resistance + 1">+</button>
+              </div>
+            </div>
+            <div>
+              <label class="form-label">运动类型/备注</label>
+              <input type="text" v-model="form.note" placeholder="例如：快走、游泳、哑铃" class="form-input text-sm" />
+            </div>
+            <button class="btn-press w-full py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-400 text-white text-sm font-semibold" @click="addLog">保存记录</button>
+          </div>
+        </div>
+
+        <!-- 近 4 周趋势 -->
+        <div class="card">
+          <h3 class="font-bold text-sm text-gray-800 mb-2">📈 近 4 周运动趋势</h3>
+          <div ref="exerciseChartRef" style="width:100%;height:200px;"></div>
+        </div>
+
+        <!-- 最近记录 -->
+        <div class="card" v-if="recentLogs.length">
+          <h3 class="font-bold text-sm text-gray-800 mb-3">📝 最近记录</h3>
+          <div class="space-y-2">
+            <div v-for="log in recentLogs.slice(0, 7)" :key="log.id" class="flex items-center justify-between p-2 rounded-lg bg-gray-50">
+              <div>
+                <div class="text-xs font-medium text-gray-700">{{ log.date }}</div>
+                <div class="text-xs text-gray-400">{{ log.note || '无备注' }}</div>
+              </div>
+              <div class="text-xs text-right">
+                <div class="text-blue-600 font-medium">有氧 {{ log.aerobic }} 分钟</div>
+                <div class="text-green-600 font-medium" v-if="log.resistance">抗阻 {{ log.resistance }} 次</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `,
+  setup(props) {
+    const store = Vue.inject('store');
+    const exerciseChartRef = ref(null);
+    const today = new Date().toISOString().slice(0, 10);
+    const form = reactive({ date: today, aerobic: 30, resistance: 0, note: '' });
+
+    const weekRange = computed(() => {
+      const dates = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        dates.push(d.toISOString().slice(0, 10));
+      }
+      return dates;
+    });
+
+    const weeklyAerobic = computed(() => {
+      return store.exerciseLogs
+        .filter(l => weekRange.value.includes(l.date))
+        .reduce((sum, l) => sum + (Number(l.aerobic) || 0), 0);
+    });
+    const weeklyResistance = computed(() => {
+      return store.exerciseLogs
+        .filter(l => weekRange.value.includes(l.date))
+        .reduce((sum, l) => sum + (Number(l.resistance) || 0), 0);
+    });
+
+    const recentLogs = computed(() => {
+      return [...store.exerciseLogs].sort((a, b) => new Date(b.date) - new Date(a.date));
+    });
+
+    const addLog = () => {
+      const idx = store.exerciseLogs.findIndex(l => l.date === form.date);
+      if (idx >= 0) {
+        store.exerciseLogs[idx].aerobic = (store.exerciseLogs[idx].aerobic || 0) + form.aerobic;
+        store.exerciseLogs[idx].resistance = (store.exerciseLogs[idx].resistance || 0) + form.resistance;
+        if (form.note) store.exerciseLogs[idx].note = form.note;
+      } else {
+        store.exerciseLogs.push({ id: `ex-${Date.now()}`, date: form.date, aerobic: form.aerobic, resistance: form.resistance, note: form.note });
+      }
+      form.aerobic = 30; form.resistance = 0; form.note = '';
+    };
+
+    const weeklyData = computed(() => {
+      const weeks = [];
+      for (let w = 3; w >= 0; w--) {
+        const end = new Date(); end.setDate(end.getDate() - w * 7);
+        const start = new Date(end); start.setDate(start.getDate() - 6);
+        const endStr = end.toISOString().slice(0, 10);
+        const startStr = start.toISOString().slice(0, 10);
+        const logs = store.exerciseLogs.filter(l => l.date >= startStr && l.date <= endStr);
+        const aerobic = logs.reduce((s, l) => s + (Number(l.aerobic) || 0), 0);
+        const resistance = logs.reduce((s, l) => s + (Number(l.resistance) || 0), 0);
+        weeks.push({ label: `${startStr.slice(5)}~${endStr.slice(5)}`, aerobic, resistance });
+      }
+      return weeks;
+    });
+
+    onMounted(() => {
+      nextTick(() => {
+        if (!exerciseChartRef.value || typeof echarts === 'undefined') return;
+        const chart = echarts.init(exerciseChartRef.value);
+        const data = weeklyData.value;
+        chart.setOption({
+          tooltip: { trigger: 'axis' },
+          legend: { data: ['有氧分钟', '抗阻次数'], bottom: 0, textStyle: { fontSize: 10 } },
+          grid: { left: 40, right: 20, top: 20, bottom: 30 },
+          xAxis: { type: 'category', data: data.map(d => d.label), axisLabel: { fontSize: 9 } },
+          yAxis: { type: 'value', axisLabel: { fontSize: 9 } },
+          series: [
+            { name: '有氧分钟', type: 'bar', data: data.map(d => d.aerobic), itemStyle: { color: '#4299e1' } },
+            { name: '抗阻次数', type: 'bar', data: data.map(d => d.resistance), itemStyle: { color: '#48bb78' } },
+          ],
+        });
+      });
+    });
+
+    return { store, form, weeklyAerobic, weeklyResistance, recentLogs, addLog, exerciseChartRef };
+  },
+};
+
+// ==================== 健康报告页面 ====================
+pageComponents['page-report'] = {
+  template: `
+    <div>
+      <div class="header-gradient" style="padding-bottom: 28px;">
+        <div class="back-btn" @click="$root.goBack()">←</div>
+        <div class="text-center pl-10">
+          <h1 class="text-xl font-bold">健康报告</h1>
+          <p class="text-blue-100 text-xs mt-1">{{ reportDate }}</p>
+        </div>
+      </div>
+      <div class="px-4 -mt-4 relative z-10 pb-24 space-y-4" id="printable-report">
+        <!-- 个人信息 -->
+        <div class="card">
+          <h2 class="font-bold text-gray-800 text-sm mb-3">👤 用户信息</h2>
+          <div class="grid grid-cols-2 gap-2 text-sm">
+            <div class="bg-gray-50 rounded-lg p-2"><span class="text-gray-400 text-xs">姓名</span><div class="font-medium">{{ store.profile.name }}</div></div>
+            <div class="bg-gray-50 rounded-lg p-2"><span class="text-gray-400 text-xs">年龄</span><div class="font-medium">{{ store.profile.age }} 岁</div></div>
+            <div class="bg-gray-50 rounded-lg p-2"><span class="text-gray-400 text-xs">疾病状态</span><div class="font-medium">{{ store.profile.condition }}</div></div>
+            <div class="bg-gray-50 rounded-lg p-2"><span class="text-gray-400 text-xs">报告周期</span><div class="font-medium">近 30 天</div></div>
+          </div>
+        </div>
+
+        <!-- 潮热摘要 -->
+        <div class="card">
+          <h2 class="font-bold text-gray-800 text-sm mb-3">🔥 潮热/盗汗摘要</h2>
+          <div class="grid grid-cols-3 gap-2 mb-3">
+            <div class="bg-red-50 rounded-xl p-3 text-center">
+              <div class="text-2xl font-bold text-red-600">{{ totalFlashes }}</div>
+              <div class="text-xs text-gray-500">总发作次数</div>
+            </div>
+            <div class="bg-orange-50 rounded-xl p-3 text-center">
+              <div class="text-2xl font-bold text-orange-600">{{ avgPerDay }}</div>
+              <div class="text-xs text-gray-500">日均发作</div>
+            </div>
+            <div class="bg-amber-50 rounded-xl p-3 text-center">
+              <div class="text-lg font-bold text-amber-600">{{ avgSeverity }}</div>
+              <div class="text-xs text-gray-500">平均严重度</div>
+            </div>
+          </div>
+          <div v-if="severityCounts" class="space-y-2">
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-16 text-gray-500">轻度</span>
+              <div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-green-400 rounded-full" :style="{ width: severityPct.mild + '%' }"></div></div>
+              <span class="w-8 text-right">{{ severityCounts.mild }}</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-16 text-gray-500">中度</span>
+              <div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-yellow-400 rounded-full" :style="{ width: severityPct.moderate + '%' }"></div></div>
+              <span class="w-8 text-right">{{ severityCounts.moderate }}</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-16 text-gray-500">重度</span>
+              <div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-red-400 rounded-full" :style="{ width: severityPct.severe + '%' }"></div></div>
+              <span class="w-8 text-right">{{ severityCounts.severe }}</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-16 text-gray-500">极重度</span>
+              <div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-gray-800 rounded-full" :style="{ width: severityPct.extreme + '%' }"></div></div>
+              <span class="w-8 text-right">{{ severityCounts.extreme }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 诱因与干预 -->
+        <div class="grid grid-cols-2 gap-3">
+          <div class="card">
+            <h2 class="font-bold text-gray-800 text-sm mb-2">⚠️ 主要诱因</h2>
+            <div v-if="topTrigger" class="text-center py-2">
+              <div class="text-xl font-bold text-orange-600">{{ topTrigger.name }}</div>
+              <div class="text-xs text-gray-500">{{ topTrigger.count }} 次关联</div>
+            </div>
+            <div v-else class="text-xs text-gray-400 text-center py-2">数据不足</div>
+          </div>
+          <div class="card">
+            <h2 class="font-bold text-gray-800 text-sm mb-2">💡 有效干预</h2>
+            <div v-if="bestIntervention" class="text-center py-2">
+              <div class="text-xl font-bold text-green-600">{{ bestIntervention.name }}</div>
+              <div class="text-xs text-gray-500">平均严重度 {{ bestIntervention.avg.toFixed(1) }}</div>
+            </div>
+            <div v-else class="text-xs text-gray-400 text-center py-2">数据不足</div>
+          </div>
+        </div>
+
+        <!-- 每日检查趋势 -->
+        <div class="card" v-if="store.dailyCheckins.length">
+          <h2 class="font-bold text-gray-800 text-sm mb-3">📊 每日检查趋势（近 14 天）</h2>
+          <div ref="checkinChartRef" style="width:100%;height:200px;"></div>
+          <div class="grid grid-cols-3 gap-2 mt-3 text-center text-xs">
+            <div class="bg-blue-50 rounded-lg p-2"><div class="font-bold text-blue-600">{{ avgCheckin('sleep') }}</div><div class="text-gray-500">平均睡眠</div></div>
+            <div class="bg-green-50 rounded-lg p-2"><div class="font-bold text-green-600">{{ avgCheckin('mood') }}</div><div class="text-gray-500">平均情绪</div></div>
+            <div class="bg-amber-50 rounded-lg p-2"><div class="font-bold text-amber-600">{{ avgCheckin('fatigue') }}</div><div class="text-gray-500">平均疲劳</div></div>
+          </div>
+        </div>
+
+        <!-- AI 建议 -->
+        <div class="card" style="background: linear-gradient(135deg, #ebf8ff, #e9d8fd);">
+          <h2 class="font-bold text-purple-700 text-sm mb-3">🤖 AI 管理建议</h2>
+          <div v-if="recommendations.length" class="space-y-2">
+            <div v-for="(rec, i) in recommendations" :key="i" class="bg-white/70 rounded-lg p-2">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs px-2 py-0.5 rounded-full font-bold" :class="evidenceClass(rec.evidence)">{{ rec.evidence === 'A' ? '强证据' : rec.evidence === 'B' ? '中证据' : '初步证据' }}</span>
+                <span class="text-xs font-bold text-gray-700">{{ rec.title }}</span>
+              </div>
+              <p class="text-xs text-gray-600 leading-relaxed">{{ rec.desc }}</p>
+            </div>
+          </div>
+          <div v-else class="text-xs text-gray-500">记录更多数据以获取个性化建议</div>
+        </div>
+
+        <!-- 医生备注 -->
+        <div class="card">
+          <h2 class="font-bold text-gray-800 text-sm mb-2">📝 医生/患者备注</h2>
+          <textarea v-model="doctorNote" class="w-full border border-gray-200 rounded-lg p-2 text-sm" rows="3" placeholder="可在此记录就诊计划、用药调整或想问医生的问题..."></textarea>
+        </div>
+
+        <!-- 打印按钮 -->
+        <button class="btn-press w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-400 text-white font-semibold shadow-lg shadow-blue-200 no-print"
+                @click="printReport">
+          🖨️ 打印 / 保存为 PDF
+        </button>
+      </div>
+    </div>
+  `,
+  setup() {
+    const root = Vue.inject('root');
+    const store = Vue.inject('store');
+    const checkinChartRef = ref(null);
+    const doctorNote = ref('');
+    const reportDate = new Date().toLocaleDateString('zh-CN');
+
+    const severityMap = { mild: 1, moderate: 2, severe: 3, extreme: 4 };
+    const recentRecords = computed(() => {
+      const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      return store.symptoms.filter(s => s.time >= cutoff);
+    });
+    const totalFlashes = computed(() => recentRecords.value.length);
+    const avgPerDay = computed(() => (totalFlashes.value / 30).toFixed(1));
+    const avgSeverity = computed(() => {
+      if (!recentRecords.value.length) return '-';
+      const avg = recentRecords.value.reduce((sum, s) => sum + (severityMap[s.severity] || 2), 0) / recentRecords.value.length;
+      return avg.toFixed(1);
+    });
+    const severityCounts = computed(() => {
+      const c = { mild: 0, moderate: 0, severe: 0, extreme: 0 };
+      recentRecords.value.forEach(s => { c[s.severity] = (c[s.severity] || 0) + 1; });
+      return c;
+    });
+    const severityPct = computed(() => {
+      const total = totalFlashes.value || 1;
+      return {
+        mild: (severityCounts.value.mild / total) * 100,
+        moderate: (severityCounts.value.moderate / total) * 100,
+        severe: (severityCounts.value.severe / total) * 100,
+        extreme: (severityCounts.value.extreme / total) * 100,
+      };
+    });
+
+    // 诱因统计（使用记录中的 triggers 数组）
+    const triggerStats = computed(() => {
+      const counts = {};
+      recentRecords.value.forEach(s => {
+        (s.triggers || []).forEach(t => { counts[t] = (counts[t] || 0) + 1; });
+      });
+      return Object.entries(counts).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
+    });
+    const topTrigger = computed(() => triggerStats.value[0] || null);
+
+    // 干预效果统计
+    const interventionStats = computed(() => {
+      const groups = {};
+      recentRecords.value.forEach(s => {
+        const key = s.intervention || '无';
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(severityMap[s.severity] || 2);
+      });
+      return Object.entries(groups)
+        .map(([name, scores]) => ({ name, avg: scores.reduce((a, b) => a + b, 0) / scores.length, count: scores.length }))
+        .filter(i => i.count >= 2)
+        .sort((a, b) => a.avg - b.avg);
+    });
+    const bestIntervention = computed(() => interventionStats.value[0] || null);
+
+    const avgCheckin = (key) => {
+      const recent = store.dailyCheckins.slice(-14);
+      if (!recent.length) return '-';
+      const avg = recent.reduce((sum, c) => sum + (Number(c[key]) || 0), 0) / recent.length;
+      return avg.toFixed(1);
+    };
+
+    const recommendations = computed(() => {
+      const recs = [];
+      const sleepScore = avgCheckin('sleep');
+      const fatigueScore = avgCheckin('fatigue');
+      const moodScore = avgCheckin('mood');
+      const total = recentRecords.value.length;
+
+      // 基于每日检查趋势的建议
+      if (sleepScore !== '-' && parseFloat(sleepScore) <= 2.5) {
+        recs.push({ title: '睡眠卫生优化 + CBT 放松', desc: '近 14 天睡眠质量较低。建议卧室保持 15–18°C、使用透气床品、睡前 60–90 分钟洗温水澡，并配合 4-7-8 呼吸或渐进式肌肉放松。', evidence: 'A' });
+      }
+      if (fatigueScore !== '-' && parseFloat(fatigueScore) <= 2.5) {
+        recs.push({ title: '规律运动处方', desc: '疲劳感明显，建议每周 150 分钟中等强度有氧运动 + 2 次抗阻训练。STAMINA 等 RCT 显示运动可改善 ADT 患者的疲劳与生活质量。', evidence: 'A' });
+      }
+      if (moodScore !== '-' && parseFloat(moodScore) <= 2.5) {
+        recs.push({ title: 'CBT 认知重构', desc: '情绪评分偏低，建议使用 CBT 工具中的认知重构工作表，识别并调整对潮热的灾难化思维。MANCAN2 研究显示 CBT 可在 6 周内改善焦虑与抑郁。', evidence: 'A' });
+      }
+
+      // 基于诱因数据
+      if (topTrigger.value) {
+        if (['辛辣食物', '酒精', '咖啡因'].includes(topTrigger.value.name)) {
+          recs.push({ title: '饮食诱因管理', desc: `您的记录显示 ${topTrigger.value.name} 是主要诱因。NCI PDQ 与 ASCO 教育资料均建议限制这些触发因素以减轻潮热。`, evidence: 'A' });
+        } else if (['闷热环境', '情绪激动', '运动/活动后'].includes(topTrigger.value.name)) {
+          recs.push({ title: '环境与触发管理', desc: `${topTrigger.value.name} 是主要诱因，建议提前使用分层降温技术（便携风扇、冷敷、多层衣物）。`, evidence: 'B' });
+        }
+      }
+
+      // 基于发作频率与严重度
+      if (total >= 20) {
+        recs.push({ title: 'CBT 自我管理课程', desc: '发作频率较高，建议系统使用 CBT 工具中的呼吸、肌肉放松和认知重构练习。MANCAN2 采用 4 周 CBT 方案，6 周时 HFNS 严重程度显著下降。', evidence: 'A' });
+      }
+      if (parseFloat(avgSeverity.value) >= 2.5) {
+        recs.push({ title: '分层降温技术', desc: '平均严重度偏高，建议在潮热前兆期（核心体温上升阶段）立即脱衣、冷敷颈后/手腕，并启动慢呼吸。', evidence: 'B' });
+      }
+
+      // 通用循证建议（避免空报告）
+      if (!recs.length) {
+        recs.push({ title: 'CBT 放松练习', desc: ' paced breathing 与放松训练被 NCI PDQ 列为非药物干预证据，可每日练习 4-7-8 呼吸或腹式呼吸。', evidence: 'A' });
+        recs.push({ title: '饮食与生活方式', desc: '限制酒精、咖啡因和辛辣食物，适量摄入大豆制品（约 50mg 异黄酮/日），保持每日 1500–2000ml 饮水。', evidence: 'B' });
+      }
+
+      return recs;
+    });
+
+    const evidenceClass = (level) => {
+      if (level === 'A') return 'bg-green-100 text-green-700';
+      if (level === 'B') return 'bg-blue-100 text-blue-700';
+      return 'bg-gray-100 text-gray-600';
+    };
+
+    const printReport = () => { window.print(); };
+
+    onMounted(() => {
+      if (!checkinChartRef.value || !store.dailyCheckins.length) return;
+      const chart = echarts.init(checkinChartRef.value);
+      const recent = store.dailyCheckins.slice(-14);
+      const option = {
+        tooltip: { trigger: 'axis' },
+        legend: { data: ['睡眠', '情绪', '疲劳'], bottom: 0, textStyle: { fontSize: 10 } },
+        grid: { left: 30, right: 10, top: 20, bottom: 30 },
+        xAxis: { type: 'category', data: recent.map(c => c.date.slice(5)), axisLabel: { fontSize: 9 } },
+        yAxis: { type: 'value', min: 1, max: 5, axisLabel: { fontSize: 9 } },
+        series: [
+          { name: '睡眠', type: 'line', data: recent.map(c => c.sleep), smooth: true, itemStyle: { color: '#4299e1' } },
+          { name: '情绪', type: 'line', data: recent.map(c => c.mood), smooth: true, itemStyle: { color: '#48bb78' } },
+          { name: '疲劳', type: 'line', data: recent.map(c => c.fatigue), smooth: true, itemStyle: { color: '#ed8936' } },
+        ],
+      };
+      chart.setOption(option);
+    });
+
+    return {
+      store, reportDate, totalFlashes, avgPerDay, avgSeverity,
+      severityCounts, severityPct, topTrigger, bestIntervention,
+      avgCheckin, recommendations, evidenceClass, printReport,
+      checkinChartRef, doctorNote,
     };
   },
 };
@@ -4598,6 +5404,10 @@ const app = createApp({
       }),
       constitution: loadFromStorage(STORAGE_KEYS.constitution, null),
       scaleResults: loadFromStorage(STORAGE_KEYS.scaleResults, []),
+      dailyCheckins: loadFromStorage(STORAGE_KEYS.dailyCheckins, []),
+      dietLogs: loadFromStorage(STORAGE_KEYS.dietLogs, []),
+      waterLogs: loadFromStorage(STORAGE_KEYS.waterLogs, []),
+      exerciseLogs: loadFromStorage(STORAGE_KEYS.exerciseLogs, []),
     });
 
     // 首次加载时如果没有数据，生成演示数据
@@ -4617,6 +5427,18 @@ const app = createApp({
     }, { deep: true });
     watch(() => store.scaleResults, (val) => {
       localStorage.setItem(STORAGE_KEYS.scaleResults, JSON.stringify(val));
+    }, { deep: true });
+    watch(() => store.dailyCheckins, (val) => {
+      localStorage.setItem(STORAGE_KEYS.dailyCheckins, JSON.stringify(val));
+    }, { deep: true });
+    watch(() => store.dietLogs, (val) => {
+      localStorage.setItem(STORAGE_KEYS.dietLogs, JSON.stringify(val));
+    }, { deep: true });
+    watch(() => store.waterLogs, (val) => {
+      localStorage.setItem(STORAGE_KEYS.waterLogs, JSON.stringify(val));
+    }, { deep: true });
+    watch(() => store.exerciseLogs, (val) => {
+      localStorage.setItem(STORAGE_KEYS.exerciseLogs, JSON.stringify(val));
     }, { deep: true });
 
     // 提供给所有子组件
@@ -4724,6 +5546,41 @@ const app = createApp({
       quickRecord.duration = 5;
     };
 
+    // ---------- 每日 30 秒检查 ----------
+    const showDailyCheckin = ref(false);
+    const checkinItems = [
+      { key: 'sleep', label: '睡眠质量', emoji: '😴', type: 'score' },
+      { key: 'mood', label: '情绪状态', emoji: '😊', type: 'score' },
+      { key: 'fatigue', label: '疲劳程度', emoji: '🔋', type: 'score' },
+      { key: 'exercise', label: '今日运动', emoji: '🏃', type: 'number', step: 10, unit: '分钟' },
+      { key: 'diet', label: '饮食控制', emoji: '🥗', type: 'score' },
+      { key: 'water', label: '饮水量', emoji: '💧', type: 'number', step: 250, unit: 'ml' },
+    ];
+    const dailyCheckin = reactive({
+      sleep: 3, mood: 3, fatigue: 3, exercise: 0, diet: 3, water: 1500,
+    });
+    const resetDailyCheckin = () => {
+      dailyCheckin.sleep = 3;
+      dailyCheckin.mood = 3;
+      dailyCheckin.fatigue = 3;
+      dailyCheckin.exercise = 0;
+      dailyCheckin.diet = 3;
+      dailyCheckin.water = 1500;
+    };
+    const todayCheckin = computed(() => {
+      const today = new Date().toISOString().slice(0, 10);
+      return store.dailyCheckins.find(c => c.date === today);
+    });
+    const saveDailyCheckin = () => {
+      const today = new Date().toISOString().slice(0, 10);
+      const idx = store.dailyCheckins.findIndex(c => c.date === today);
+      const record = { date: today, ...dailyCheckin, id: `dc-${Date.now()}` };
+      if (idx >= 0) store.dailyCheckins.splice(idx, 1, record);
+      else store.dailyCheckins.push(record);
+      showDailyCheckin.value = false;
+      resetDailyCheckin();
+    };
+
     return {
       store,
       tabs,
@@ -4738,6 +5595,11 @@ const app = createApp({
       quickRecord,
       severityOptions,
       saveQuickRecord,
+      showDailyCheckin,
+      dailyCheckin,
+      checkinItems,
+      saveDailyCheckin,
+      todayCheckin,
     };
   },
 });
