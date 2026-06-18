@@ -368,6 +368,38 @@
               <span class="text-xs text-gray-400 w-10">{{ item.unit }}</span>
             </div>
           </div>
+          <!-- 简短 PRO 量表（可折叠） -->
+          <div class="border border-gray-100 rounded-xl overflow-hidden">
+            <div class="flex items-center justify-between p-3 bg-gray-50 cursor-pointer" @click="showPro = !showPro">
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-semibold text-gray-700">📋 FACT-F / PHQ-2 简短量表</span>
+                <span class="text-xs text-gray-400">（可选）</span>
+              </div>
+              <span class="text-gray-400 text-sm">{{ showPro ? '▲' : '▼' }}</span>
+            </div>
+            <div v-if="showPro" class="p-3 space-y-4">
+              <div class="text-xs text-gray-500 bg-purple-50 rounded-lg p-2">
+                0=完全没有/一点也不，1=有一点/好几天，2=相当多/一半以上天数，3=非常多/几乎每天。分数越高表示困扰越重。
+              </div>
+              <div v-for="item in proItems" :key="item.key">
+                <label class="block text-xs font-medium text-gray-600 mb-2">{{ item.label }}</label>
+                <div class="flex gap-2">
+                  <button v-for="n in 4" :key="n - 1"
+                          class="btn-press flex-1 py-2 rounded-lg text-sm font-semibold border-2 transition-all"
+                          :class="dailyCheckin[item.key] === (n - 1)
+                            ? 'border-purple-500 bg-purple-50 text-purple-600'
+                            : 'border-gray-200 text-gray-400'"
+                          @click="dailyCheckin[item.key] = n - 1">
+                    {{ n - 1 }}
+                  </button>
+                </div>
+              </div>
+              <div class="text-xs text-gray-500">
+                FACT-F 小计：{{ factFSum }}/9；PHQ-2 小计：{{ phq2Sum }}/6
+              </div>
+            </div>
+          </div>
+
           <div class="bg-blue-50 rounded-lg p-3 text-xs text-blue-700">
             💡 评分说明：1=很差，5=很好。连续记录 7 天以上可生成趋势分析。
           </div>
@@ -2336,6 +2368,13 @@ pageComponents['page-stats'] = {
           <div ref="interventionChartRef" class="chart-container"></div>
         </div>
 
+        <!-- 诱因-症状关联热力图 -->
+        <div class="card">
+          <h2 class="font-bold text-gray-800 text-sm mb-2">🔥 诱因-症状关联热力图</h2>
+          <p class="text-xs text-gray-400 mb-2">颜色越深表示该诱因与伴随症状共同出现的次数越多</p>
+          <div ref="triggerSymptomRef" class="chart-container-lg"></div>
+        </div>
+
       </div>
     </div>
   `,
@@ -2354,6 +2393,7 @@ pageComponents['page-stats'] = {
     const triggerChartRef = ref(null);
     const heatmapRef = ref(null);
     const interventionChartRef = ref(null);
+    const triggerSymptomRef = ref(null);
     let charts = [];
 
     const scoreMap = { mild: 1, moderate: 2, severe: 3, extreme: 4 };
@@ -2421,6 +2461,32 @@ pageComponents['page-stats'] = {
       return Object.entries(counts)
         .sort((a, b) => b[1] - a[1])
         .map(([name, count]) => ({ name, count }));
+    });
+
+    // ---- 诱因-症状关联热力图数据 ----
+    const triggerSymptomData = computed(() => {
+      const triggers = ['咖啡因', '酒精', '辛辣食物', '高温环境', '压力', '剧烈运动', '情绪波动'];
+      const symptoms = ['面部潮红', '心悸', '出汗', '失眠', '焦虑', '头痛'];
+      const counts = {};
+      filteredSymptoms.value.forEach(s => {
+        (s.triggers || []).forEach(t => {
+          if (!triggers.includes(t)) return;
+          (s.accompanying || []).forEach(a => {
+            if (!symptoms.includes(a)) return;
+            counts[`${t}-${a}`] = (counts[`${t}-${a}`] || 0) + 1;
+          });
+        });
+      });
+      const data = [];
+      let maxVal = 0;
+      triggers.forEach((t, ti) => {
+        symptoms.forEach((s, si) => {
+          const val = counts[`${t}-${s}`] || 0;
+          if (val > maxVal) maxVal = val;
+          data.push([ti, si, val]);
+        });
+      });
+      return { triggers, symptoms, data, maxVal };
     });
 
     // ---- 热力图数据 (24h × 7day) ----
@@ -2581,6 +2647,22 @@ pageComponents['page-stats'] = {
       charts.push(c);
     };
 
+    const renderTriggerSymptomHeatmap = () => {
+      if (!triggerSymptomRef.value) return;
+      const { triggers, symptoms, data, maxVal } = triggerSymptomData.value;
+      const option = {
+        tooltip: { formatter: (p) => `诱因：${triggers[p.value[0]]}<br/>症状：${symptoms[p.value[1]]}<br/>共同出现：${p.value[2]} 次` },
+        grid: { left: 70, right: 20, top: 8, bottom: 60 },
+        xAxis: { type: 'category', data: triggers, splitArea: { show: true }, axisLabel: { fontSize: 9, color: '#4a5568', rotate: 30 } },
+        yAxis: { type: 'category', data: symptoms, splitArea: { show: true }, axisLabel: { fontSize: 10, color: '#4a5568' } },
+        visualMap: { min: 0, max: maxVal || 5, calculable: true, orient: 'horizontal', left: 'center', bottom: 0, itemWidth: 12, itemHeight: 100, textStyle: { fontSize: 10 }, inRange: { color: ['#fff5f5', '#feb2b2', '#fc8181', '#e53e3e', '#9b2c2c'] } },
+        series: [{ type: 'heatmap', data: data, emphasis: { itemStyle: { borderColor: '#333', borderWidth: 1 } }, label: { show: true, fontSize: 10, color: '#2d3748' } }],
+      };
+      const c = echarts.init(triggerSymptomRef.value);
+      c.setOption(option);
+      charts.push(c);
+    };
+
     const renderAllCharts = () => {
       charts.forEach(c => c.dispose());
       charts = [];
@@ -2590,6 +2672,7 @@ pageComponents['page-stats'] = {
         renderTriggerChart();
         renderHeatmap();
         renderInterventionChart();
+        renderTriggerSymptomHeatmap();
       });
     };
 
@@ -2602,7 +2685,7 @@ pageComponents['page-stats'] = {
     watch(() => store.symptoms.length, () => renderAllCharts());
     onUnmounted(() => charts.forEach(c => c.dispose()));
 
-    return { activeTimeTab, timeTabs, setTimeTab, trendChartRef, pieChartRef, triggerChartRef, heatmapRef, interventionChartRef };
+    return { activeTimeTab, timeTabs, setTimeTab, trendChartRef, pieChartRef, triggerChartRef, heatmapRef, interventionChartRef, triggerSymptomRef };
   },
 };
 // ==================== 科普详情页（Task 14）====================
@@ -5173,6 +5256,42 @@ pageComponents['page-report'] = {
           <div v-else class="text-xs text-gray-500">记录更多数据以获取个性化建议</div>
         </div>
 
+        <!-- 医生摘要视图 -->
+        <div class="card" style="background: linear-gradient(135deg, #fffaf0, #fff5f5);">
+          <h2 class="font-bold text-gray-800 text-sm mb-3">👨‍⚕️ 医生摘要视图</h2>
+          <div class="space-y-3">
+            <div class="grid grid-cols-2 gap-2 text-sm">
+              <div class="bg-white/70 rounded-lg p-2"><span class="text-gray-400 text-xs">患者</span><div class="font-medium">{{ store.profile.name }}，{{ store.profile.age }}岁</div></div>
+              <div class="bg-white/70 rounded-lg p-2"><span class="text-gray-400 text-xs">诊断/治疗</span><div class="font-medium">{{ store.profile.condition || '未填写' }}</div></div>
+            </div>
+            <div class="grid grid-cols-3 gap-2 text-center text-sm">
+              <div class="bg-white/70 rounded-lg p-2"><div class="font-bold text-red-600">{{ totalFlashes }}</div><div class="text-xs text-gray-500">30天发作</div></div>
+              <div class="bg-white/70 rounded-lg p-2"><div class="font-bold text-orange-600">{{ avgPerDay }}</div><div class="text-xs text-gray-500">日均</div></div>
+              <div class="bg-white/70 rounded-lg p-2"><div class="font-bold text-amber-600">{{ avgSeverity }}</div><div class="text-xs text-gray-500">平均严重度</div></div>
+            </div>
+            <div v-if="topTrigger || bestIntervention" class="grid grid-cols-2 gap-2 text-sm">
+              <div v-if="topTrigger" class="bg-white/70 rounded-lg p-2"><span class="text-gray-400 text-xs">主要诱因</span><div class="font-medium text-orange-600">{{ topTrigger.name }} ({{ topTrigger.count }}次)</div></div>
+              <div v-if="bestIntervention" class="bg-white/70 rounded-lg p-2"><span class="text-gray-400 text-xs">最有效干预</span><div class="font-medium text-green-600">{{ bestIntervention.name }} ({{ bestIntervention.avg.toFixed(1) }})</div></div>
+            </div>
+            <div v-if="weeklyCompare.flashCount.change !== 0 || weeklyCompare.severity.change > 0.3" class="bg-white/70 rounded-lg p-2">
+              <div class="text-xs text-gray-400 mb-1">周环比变化</div>
+              <div class="flex flex-wrap gap-2 text-xs">
+                <span v-if="weeklyCompare.flashCount.change > 0" class="px-2 py-0.5 rounded-full bg-red-100 text-red-700">发作 +{{ weeklyCompare.flashCount.change }}次</span>
+                <span v-if="weeklyCompare.flashCount.change < 0" class="px-2 py-0.5 rounded-full bg-green-100 text-green-700">发作 {{ weeklyCompare.flashCount.change }}次</span>
+                <span v-if="weeklyCompare.severity.change > 0.3" class="px-2 py-0.5 rounded-full bg-red-100 text-red-700">严重度 ↑</span>
+                <span v-if="weeklyCompare.severity.change < -0.3" class="px-2 py-0.5 rounded-full bg-green-100 text-green-700">严重度 ↓</span>
+              </div>
+            </div>
+            <div v-if="parseFloat(avgSeverity) >= 3 || totalFlashes >= 30" class="bg-red-50 border border-red-100 rounded-lg p-2">
+              <div class="text-xs font-bold text-red-700 mb-1">⚠️ 需关注信号</div>
+              <div class="text-xs text-red-600">
+                {{ parseFloat(avgSeverity) >= 3 ? '近30天平均严重度≥3（重度），建议评估药物干预。' : '' }}
+                {{ totalFlashes >= 30 ? '发作频率较高（≥30次/月），可能影响生活质量。' : '' }}
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- 医生备注 -->
         <div class="card">
           <h2 class="font-bold text-gray-800 text-sm mb-2">📝 医生/患者备注</h2>
@@ -5253,12 +5372,45 @@ pageComponents['page-report'] = {
       return avg.toFixed(1);
     };
 
+    // 周环比计算（本周 vs 上周）
+    const weeklyCompare = computed(() => {
+      const now = new Date();
+      const getWeekRange = (weekOffset) => {
+        const end = new Date(now); end.setDate(end.getDate() - weekOffset * 7);
+        const start = new Date(end); start.setDate(start.getDate() - 6);
+        return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+      };
+      const thisWeek = getWeekRange(0);
+      const lastWeek = getWeekRange(1);
+
+      const thisRecords = recentRecords.value.filter(s => s.time.slice(0, 10) >= thisWeek.start && s.time.slice(0, 10) <= thisWeek.end);
+      const lastRecords = recentRecords.value.filter(s => s.time.slice(0, 10) >= lastWeek.start && s.time.slice(0, 10) <= lastWeek.end);
+
+      const thisCount = thisRecords.length;
+      const lastCount = lastRecords.length || 1;
+      const thisSeverity = thisRecords.length ? thisRecords.reduce((s, r) => s + (severityMap[r.severity] || 2), 0) / thisRecords.length : 0;
+      const lastSeverity = lastRecords.length ? lastRecords.reduce((s, r) => s + (severityMap[r.severity] || 2), 0) / lastRecords.length : 0;
+
+      const checkinThis = store.dailyCheckins.filter(c => c.date >= thisWeek.start && c.date <= thisWeek.end);
+      const checkinLast = store.dailyCheckins.filter(c => c.date >= lastWeek.start && c.date <= lastWeek.end);
+      const avgKey = (arr, key) => arr.length ? arr.reduce((s, c) => s + (Number(c[key]) || 0), 0) / arr.length : 0;
+
+      return {
+        flashCount: { this: thisCount, last: lastRecords.length, change: thisCount - lastRecords.length, pct: ((thisCount - lastRecords.length) / lastCount * 100).toFixed(0) },
+        severity: { this: thisSeverity, last: lastSeverity, change: thisSeverity - lastSeverity },
+        sleep: { this: avgKey(checkinThis, 'sleep'), last: avgKey(checkinLast, 'sleep'), change: avgKey(checkinThis, 'sleep') - avgKey(checkinLast, 'sleep') },
+        mood: { this: avgKey(checkinThis, 'mood'), last: avgKey(checkinLast, 'mood'), change: avgKey(checkinThis, 'mood') - avgKey(checkinLast, 'mood') },
+        fatigue: { this: avgKey(checkinThis, 'fatigue'), last: avgKey(checkinLast, 'fatigue'), change: avgKey(checkinThis, 'fatigue') - avgKey(checkinLast, 'fatigue') },
+      };
+    });
+
     const recommendations = computed(() => {
       const recs = [];
       const sleepScore = avgCheckin('sleep');
       const fatigueScore = avgCheckin('fatigue');
       const moodScore = avgCheckin('mood');
       const total = recentRecords.value.length;
+      const wc = weeklyCompare.value;
 
       // 基于每日检查趋势的建议
       if (sleepScore !== '-' && parseFloat(sleepScore) <= 2.5) {
@@ -5269,6 +5421,23 @@ pageComponents['page-report'] = {
       }
       if (moodScore !== '-' && parseFloat(moodScore) <= 2.5) {
         recs.push({ title: 'CBT 认知重构', desc: '情绪评分偏低，建议使用 CBT 工具中的认知重构工作表，识别并调整对潮热的灾难化思维。MANCAN2 研究显示 CBT 可在 6 周内改善焦虑与抑郁。', evidence: 'A' });
+      }
+
+      // 周环比触发建议
+      if (wc.flashCount.change > 0) {
+        recs.push({ title: '潮热频率周环比上升', desc: `本周潮热发作较上周增加 ${wc.flashCount.change} 次（${wc.flashCount.pct > 0 ? '+' : ''}${wc.flashCount.pct}%）。建议回顾本周诱因记录，强化 CBT 放松练习，必要时与医生沟通治疗方案。`, evidence: 'B' });
+      }
+      if (wc.severity.change > 0.3) {
+        recs.push({ title: '平均严重度周环比加重', desc: '本周潮热平均严重度较上周上升，建议立即启用分层降温技术，并检查是否有新的诱因（如药物调整、感染、压力事件）。', evidence: 'B' });
+      }
+      if (wc.sleep.change < -0.5) {
+        recs.push({ title: '睡眠质量周环比下降', desc: '本周睡眠质量评分较上周下降，建议优化睡眠环境，避免睡前咖啡因和酒精，必要时使用 CBT 睡眠卫生检查表。', evidence: 'A' });
+      }
+      if (wc.mood.change < -0.5) {
+        recs.push({ title: '情绪状态周环比下降', desc: '本周情绪评分较上周下降，建议每日使用认知重构工作表，必要时寻求心理支持或医生帮助。', evidence: 'A' });
+      }
+      if (wc.fatigue.change < -0.5) {
+        recs.push({ title: '疲劳感周环比加重', desc: '本周疲劳评分较上周下降，建议循序渐进增加有氧运动，并评估睡眠质量和贫血/甲状腺功能。', evidence: 'B' });
       }
 
       // 基于诱因数据
@@ -5328,7 +5497,7 @@ pageComponents['page-report'] = {
       store, reportDate, totalFlashes, avgPerDay, avgSeverity,
       severityCounts, severityPct, topTrigger, bestIntervention,
       avgCheckin, recommendations, evidenceClass, printReport,
-      checkinChartRef, doctorNote,
+      checkinChartRef, doctorNote, weeklyCompare,
     };
   },
 };
@@ -5548,6 +5717,7 @@ const app = createApp({
 
     // ---------- 每日 30 秒检查 ----------
     const showDailyCheckin = ref(false);
+    const showPro = ref(false);
     const checkinItems = [
       { key: 'sleep', label: '睡眠质量', emoji: '😴', type: 'score' },
       { key: 'mood', label: '情绪状态', emoji: '😊', type: 'score' },
@@ -5556,8 +5726,16 @@ const app = createApp({
       { key: 'diet', label: '饮食控制', emoji: '🥗', type: 'score' },
       { key: 'water', label: '饮水量', emoji: '💧', type: 'number', step: 250, unit: 'ml' },
     ];
+    const proItems = [
+      { key: 'factf1', label: 'FACT-F：我感到疲劳' },
+      { key: 'factf2', label: 'FACT-F：疲劳影响我的日常活动' },
+      { key: 'factf3', label: 'FACT-F：我需要休息' },
+      { key: 'phq1', label: 'PHQ-2：做事提不起劲或没有兴趣' },
+      { key: 'phq2', label: 'PHQ-2：感到心情低落、沮丧或绝望' },
+    ];
     const dailyCheckin = reactive({
       sleep: 3, mood: 3, fatigue: 3, exercise: 0, diet: 3, water: 1500,
+      factf1: 0, factf2: 0, factf3: 0, phq1: 0, phq2: 0,
     });
     const resetDailyCheckin = () => {
       dailyCheckin.sleep = 3;
@@ -5566,7 +5744,14 @@ const app = createApp({
       dailyCheckin.exercise = 0;
       dailyCheckin.diet = 3;
       dailyCheckin.water = 1500;
+      dailyCheckin.factf1 = 0;
+      dailyCheckin.factf2 = 0;
+      dailyCheckin.factf3 = 0;
+      dailyCheckin.phq1 = 0;
+      dailyCheckin.phq2 = 0;
     };
+    const factFSum = computed(() => (dailyCheckin.factf1 || 0) + (dailyCheckin.factf2 || 0) + (dailyCheckin.factf3 || 0));
+    const phq2Sum = computed(() => (dailyCheckin.phq1 || 0) + (dailyCheckin.phq2 || 0));
     const todayCheckin = computed(() => {
       const today = new Date().toISOString().slice(0, 10);
       return store.dailyCheckins.find(c => c.date === today);
@@ -5600,6 +5785,10 @@ const app = createApp({
       checkinItems,
       saveDailyCheckin,
       todayCheckin,
+      showPro,
+      proItems,
+      factFSum,
+      phq2Sum,
     };
   },
 });
